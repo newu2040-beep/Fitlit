@@ -1,0 +1,6 @@
+{
+  "name": "Fitlit",
+  "description": "AI-powered fitness, nutrition, and budget planning app with personalized workout and meal plans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

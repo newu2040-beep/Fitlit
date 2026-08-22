@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Fitlit</string>
+    <string name="welcome_headline">AI-powered fitness.\nPersonalized for you.</string>
+    <string name="get_started">Get Started</string>
+    <string name="safety_disclaimer_title">Important Health &amp; Nutrition Guidance</string>
+    <string name="safety_disclaimer_body">Fitlit provides AI-generated nutrition and fitness plans for general wellness guidance only, not as medical advice. If you have medical conditions, eating disorders, pregnancy, or special dietary requirements, please consult a qualified healthcare professional before starting any plan.</string>
+    <string name="safety_disclaimer_checkbox">I understand and acknowledge that Fitlit recommendations are general wellness guidance and not medical advice.</string>
+</resources>
