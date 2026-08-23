@@ -10,6 +10,7 @@ import com.example.data.local.entity.ActivityLogEntity
 import com.example.data.local.entity.FridgeItemEntity
 import com.example.data.local.entity.LoggedFoodEntity
 import com.example.data.local.entity.MealPlanEntity
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.local.entity.WaterLogEntity
 import com.example.data.local.entity.WeightLogEntity
@@ -25,9 +26,10 @@ import kotlinx.coroutines.launch
         FridgeItemEntity::class,
         WeightLogEntity::class,
         ActivityLogEntity::class,
-        WaterLogEntity::class
+        WaterLogEntity::class,
+        TodoEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class FitlitDatabase : RoomDatabase() {
@@ -209,6 +211,111 @@ abstract class FitlitDatabase : RoomDatabase() {
             dao.insertWaterLog(WaterLogEntity(dateStr = todayStr, amountMl = 750))
             dao.insertWaterLog(WaterLogEntity(dateStr = todayStr, amountMl = 750))
             dao.insertWaterLog(WaterLogEntity(dateStr = todayStr, amountMl = 750))
+
+            // Seed initial today's to-dos with precision time, minutes and categories
+            val currentBaseMillis = System.currentTimeMillis()
+            val initialTodos = listOf(
+                TodoEntity(
+                    title = "Morning Hydration & Lemon Water",
+                    description = "Drink 500ml lukewarm water with lemon to kickstart digestive enzymes.",
+                    category = "Hydration",
+                    priority = "High",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "07:00 AM",
+                    dueTimestamp = currentBaseMillis - 3600000L * 4,
+                    reminderMinutes = 15,
+                    isCompleted = true,
+                    completedTimestamp = currentBaseMillis - 3600000L * 4 + 300000L,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "5K Fasted Brisk Walk & Sunshine",
+                    description = "Complete outdoor cardio to hit 6,000 morning steps and optimize fat oxidation.",
+                    category = "Workout",
+                    priority = "High",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "07:30 AM",
+                    dueTimestamp = currentBaseMillis - 3600000L * 3,
+                    reminderMinutes = 15,
+                    isCompleted = true,
+                    completedTimestamp = currentBaseMillis - 3600000L * 3 + 1200000L,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "High-Protein Breakfast (Oats & Berries)",
+                    description = "Consume 22g protein with complex carbs to replenish glycogen stores.",
+                    category = "Nutrition",
+                    priority = "Medium",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "08:30 AM",
+                    dueTimestamp = currentBaseMillis - 3600000L * 2,
+                    reminderMinutes = 10,
+                    isCompleted = true,
+                    completedTimestamp = currentBaseMillis - 3600000L * 2 + 600000L,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "High Protein Lunch & 10m Post-Meal Walk",
+                    description = "Eat High Protein Paneer Bowl (38g protein) + 10-minute light stroll for glucose stabilization.",
+                    category = "Nutrition",
+                    priority = "High",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "01:00 PM",
+                    dueTimestamp = currentBaseMillis + 3600000L * 1,
+                    reminderMinutes = 15,
+                    isCompleted = false,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "Strength Training: Push Day & Core",
+                    description = "45-minute gym session focusing on DB Press, Incline Flyes, Lateral Raises, and Plank holds.",
+                    category = "Workout",
+                    priority = "High",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "05:30 PM",
+                    dueTimestamp = currentBaseMillis + 3600000L * 5,
+                    reminderMinutes = 30,
+                    isCompleted = false,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "Daily Hydration Target Check (3.0 Liters)",
+                    description = "Log your final water bottle intake to meet 3000ml target.",
+                    category = "Hydration",
+                    priority = "Medium",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "07:30 PM",
+                    dueTimestamp = currentBaseMillis + 3600000L * 7,
+                    reminderMinutes = 0,
+                    isCompleted = false,
+                    isAiGenerated = false
+                ),
+                TodoEntity(
+                    title = "Light Moong Dal Dinner & Omega-3",
+                    description = "Nutrient-dense dinner + Omega 3 fish oil or plant capsule for recovery.",
+                    category = "Supplement",
+                    priority = "Medium",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "08:30 PM",
+                    dueTimestamp = currentBaseMillis + 3600000L * 8,
+                    reminderMinutes = 15,
+                    isCompleted = false,
+                    isAiGenerated = true
+                ),
+                TodoEntity(
+                    title = "Sleep Hygiene & Magnesium Glycinate",
+                    description = "Dim blue lights, take Magnesium 200mg, aim for 8 hours of deep restorative sleep.",
+                    category = "Habit",
+                    priority = "Low",
+                    dueDateStr = todayStr,
+                    dueTimeStr = "10:30 PM",
+                    dueTimestamp = currentBaseMillis + 3600000L * 10,
+                    reminderMinutes = 30,
+                    isCompleted = false,
+                    isAiGenerated = true
+                )
+            )
+            dao.insertTodos(initialTodos)
         }
     }
 }

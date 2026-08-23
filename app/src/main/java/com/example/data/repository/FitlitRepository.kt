@@ -6,6 +6,7 @@ import com.example.data.local.entity.ActivityLogEntity
 import com.example.data.local.entity.FridgeItemEntity
 import com.example.data.local.entity.LoggedFoodEntity
 import com.example.data.local.entity.MealPlanEntity
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.local.entity.WaterLogEntity
 import com.example.data.local.entity.WeightLogEntity
@@ -211,7 +212,49 @@ class FitlitRepository(
         dao.clearAllWeightLogs()
         dao.clearMealPlans()
         dao.clearFridgeItems()
+        dao.clearAllTodos()
         dao.clearUserProfile()
+    }
+
+    // To-Do & Task Management
+    val allTodos: Flow<List<TodoEntity>> = dao.getAllTodos()
+
+    fun getTodosForDate(dateStr: String): Flow<List<TodoEntity>> = dao.getTodosForDate(dateStr)
+
+    suspend fun addTodo(todo: TodoEntity): Long {
+        return dao.insertTodo(todo)
+    }
+
+    suspend fun addTodos(todos: List<TodoEntity>) {
+        dao.insertTodos(todos)
+    }
+
+    suspend fun updateTodo(todo: TodoEntity) {
+        dao.updateTodo(todo)
+    }
+
+    suspend fun setTodoCompleted(id: Long, isCompleted: Boolean) {
+        val completedTimestamp = if (isCompleted) System.currentTimeMillis() else null
+        dao.setTodoCompleted(id, isCompleted, completedTimestamp)
+    }
+
+    suspend fun deleteTodo(id: Long) {
+        dao.deleteTodoById(id)
+    }
+
+    suspend fun clearAllTodos() {
+        dao.clearAllTodos()
+    }
+
+    suspend fun generateAiDailySchedule(): Result<List<TodoEntity>> {
+        val profile = dao.getUserProfileOnce() ?: UserProfileEntity()
+        val result = aiRepository.generateDailySchedule(profile)
+        result.onSuccess { todos ->
+            if (todos.isNotEmpty()) {
+                dao.insertTodos(todos)
+            }
+        }
+        return result
     }
 
     // AI Generation Actions

@@ -1,8 +1,10 @@
 package com.example.data.repository
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import com.example.BuildConfig
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.remote.GeminiApiService
 import com.example.data.remote.GeminiClient
@@ -14,18 +16,23 @@ import com.example.data.remote.GeminiRequest
 import com.example.data.remote.GeminiTool
 import com.example.data.remote.GeneratedMeal
 import com.example.data.remote.GeneratedPlanResponse
+import com.example.util.GeminiKeyManager
 import com.squareup.moshi.Types
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.time.LocalDate
 
 class GeminiAiRepository(
-    private val apiService: GeminiApiService = GeminiClient.service
+    private val apiService: GeminiApiService = GeminiClient.service,
+    private val keyManager: GeminiKeyManager? = null
 ) {
     private val apiKey: String
-        get() = BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "MY_GEMINI_API_KEY" } ?: ""
+        get() = keyManager?.getEffectiveApiKey()
+            ?: BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "MY_GEMINI_API_KEY" }
+            ?: ""
 
     /**
      * Generate full daily / weekly meal plan based on user goals, body stats, and budget.
@@ -788,6 +795,219 @@ class GeminiAiRepository(
                 whyItFitsGoal = "Sustained fiber release ensures full satiety throughout the morning."
             )
         )
+    }
+
+    /**
+     * Generate an AI-tailored daily fitness, hydration, meal and recovery To-Do schedule.
+     * Uses gemini-3.5-flash.
+     */
+    suspend fun generateDailySchedule(profile: UserProfileEntity): Result<List<TodoEntity>> = withContext(Dispatchers.IO) {
+        val todayStr = LocalDate.now().toString()
+        val currentBaseMillis = System.currentTimeMillis()
+        try {
+            val key = apiKey
+            if (key.isBlank()) {
+                return@withContext Result.success(getFallbackDailySchedule(profile, todayStr, currentBaseMillis))
+            }
+
+            val prompt = """
+                You are Fitlit AI, a world-class fitness coach and habit architect.
+                Generate a precision, science-backed daily schedule of actionable to-do tasks for:
+                - Goal: ${profile.goal}
+                - Calorie Target: ${profile.targetCalories} kcal, Protein: ${profile.targetProtein}g
+                - Daily Steps Target: ${profile.targetSteps}
+                - Water Target: ${profile.targetWaterMl} ml
+                - Activity Level: ${profile.activityLevel}
+
+                Create 6 to 8 structured tasks throughout the day spanning:
+                - Categories: Workout, Nutrition, Hydration, Supplement, Habit
+                - Specific Times: e.g. "07:00 AM", "07:30 AM", "08:30 AM", "01:00 PM", "05:30 PM", "07:30 PM", "08:30 PM", "10:30 PM"
+                - Priorities: High, Medium, Low
+                - Reminder minutes (e.g. 0, 15, 30)
+
+                Respond ONLY with a valid JSON array of objects:
+                [
+                  {
+                    "title": "Short punchy task name",
+                    "description": "Clear actionable instruction on why and how to do it",
+                    "category": "Workout",
+                    "priority": "High",
+                    "dueTimeStr": "07:30 AM",
+                    "reminderMinutes": 15
+                  }
+                ]
+            """.trimIndent()
+
+            val request = GeminiRequest(
+                contents = listOf(GeminiContent(parts = listOf(GeminiPart(text = prompt)), role = "user")),
+                generationConfig = GeminiGenerationConfig(
+                    temperature = 0.4f,
+                    responseMimeType = "application/json"
+                )
+            )
+
+            val response = apiService.generateContent(
+                model = "gemini-3.5-flash",
+                apiKey = key,
+                request = request
+            )
+
+            val responseText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (responseText != null) {
+                val clean = responseText.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+                val jsonArr = JSONArray(clean)
+                val todoList = mutableListOf<TodoEntity>()
+                for (i in 0 until jsonArr.length()) {
+                    val obj = jsonArr.getJSONObject(i)
+                    val timeStr = obj.optString("dueTimeStr", "08:00 AM")
+                    todoList.add(
+                        TodoEntity(
+                            title = obj.optString("title", "Daily Fitness Task"),
+                            description = obj.optString("description", ""),
+                            category = obj.optString("category", "Workout"),
+                            priority = obj.optString("priority", "Medium"),
+                            dueDateStr = todayStr,
+                            dueTimeStr = timeStr,
+                            dueTimestamp = parseTimeStrToEpochMillis(timeStr, currentBaseMillis),
+                            reminderMinutes = obj.optInt("reminderMinutes", 15),
+                            isCompleted = false,
+                            isAiGenerated = true
+                        )
+                    )
+                }
+                if (todoList.isNotEmpty()) {
+                    return@withContext Result.success(todoList)
+                }
+            }
+
+            Result.success(getFallbackDailySchedule(profile, todayStr, currentBaseMillis))
+        } catch (e: retrofit2.HttpException) {
+            if (e.code() == 429) {
+                keyManager?.markQuotaExceeded()
+            }
+            Result.success(getFallbackDailySchedule(profile, todayStr, currentBaseMillis))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.success(getFallbackDailySchedule(profile, todayStr, currentBaseMillis))
+        }
+    }
+
+    private fun getFallbackDailySchedule(profile: UserProfileEntity, todayStr: String, currentBaseMillis: Long): List<TodoEntity> {
+        return listOf(
+            TodoEntity(
+                title = "Morning Electrolyte & 500ml Water",
+                description = "Drink 500ml lukewarm water with pinch of pink salt or lemon to optimize morning cortisol.",
+                category = "Hydration",
+                priority = "High",
+                dueDateStr = todayStr,
+                dueTimeStr = "07:00 AM",
+                dueTimestamp = currentBaseMillis - 3600000L * 4,
+                reminderMinutes = 15,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Fasted Morning Walk (${profile.targetSteps / 2} Steps)",
+                description = "Brisk outdoor walk in natural sunlight for circadian alignment and metabolic priming.",
+                category = "Workout",
+                priority = "High",
+                dueDateStr = todayStr,
+                dueTimeStr = "07:30 AM",
+                dueTimestamp = currentBaseMillis - 3600000L * 3,
+                reminderMinutes = 15,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Fuel: High-Protein Breakfast (${(profile.targetProtein * 0.25).toInt()}g)",
+                description = "Replenish amino acids with oats, berries, and egg whites/paneer.",
+                category = "Nutrition",
+                priority = "Medium",
+                dueDateStr = todayStr,
+                dueTimeStr = "08:30 AM",
+                dueTimestamp = currentBaseMillis - 3600000L * 2,
+                reminderMinutes = 10,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Midday Meal & 10m Postprandial Walk",
+                description = "High Protein lunch with brown rice and leafy greens, followed by a 10 min stroll.",
+                category = "Nutrition",
+                priority = "High",
+                dueDateStr = todayStr,
+                dueTimeStr = "01:00 PM",
+                dueTimestamp = currentBaseMillis + 3600000L * 1,
+                reminderMinutes = 15,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Targeted Strength & Hypertrophy Session",
+                description = "45 mins progressive resistance training targeting hypertrophy and core endurance.",
+                category = "Workout",
+                priority = "High",
+                dueDateStr = todayStr,
+                dueTimeStr = "05:30 PM",
+                dueTimestamp = currentBaseMillis + 3600000L * 5,
+                reminderMinutes = 30,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Hydration Milestone (${profile.targetWaterMl}ml Goal)",
+                description = "Check your water intake logs to guarantee cellular hydration.",
+                category = "Hydration",
+                priority = "Medium",
+                dueDateStr = todayStr,
+                dueTimeStr = "07:30 PM",
+                dueTimestamp = currentBaseMillis + 3600000L * 7,
+                reminderMinutes = 0,
+                isCompleted = false,
+                isAiGenerated = false
+            ),
+            TodoEntity(
+                title = "Light Recovery Dinner & Micronutrients",
+                description = "Clean protein rich dinner with minerals to aid overnight tissue repair.",
+                category = "Nutrition",
+                priority = "Medium",
+                dueDateStr = todayStr,
+                dueTimeStr = "08:30 PM",
+                dueTimestamp = currentBaseMillis + 3600000L * 8,
+                reminderMinutes = 15,
+                isCompleted = false,
+                isAiGenerated = true
+            ),
+            TodoEntity(
+                title = "Night Rest Protocol & Wind Down",
+                description = "Turn off bright screens, sip herbal tea, ensure 8 hours uninterrupted sleep.",
+                category = "Habit",
+                priority = "Low",
+                dueDateStr = todayStr,
+                dueTimeStr = "10:30 PM",
+                dueTimestamp = currentBaseMillis + 3600000L * 10,
+                reminderMinutes = 30,
+                isCompleted = false,
+                isAiGenerated = true
+            )
+        )
+    }
+
+    private fun parseTimeStrToEpochMillis(timeStr: String, baseMillis: Long): Long {
+        return try {
+            val parts = timeStr.trim().split(" ")
+            val time = parts[0].split(":")
+            var hour = time[0].toInt()
+            val min = time.getOrNull(1)?.toInt() ?: 0
+            val isPm = parts.getOrNull(1)?.equals("PM", ignoreCase = true) == true
+            if (isPm && hour < 12) hour += 12
+            if (!isPm && hour == 12) hour = 0
+            val now = java.time.LocalDateTime.now()
+            val target = now.withHour(hour).withMinute(min).withSecond(0)
+            target.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (e: Exception) {
+            baseMillis
+        }
     }
 }
 

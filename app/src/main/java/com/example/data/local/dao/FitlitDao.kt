@@ -10,6 +10,7 @@ import com.example.data.local.entity.ActivityLogEntity
 import com.example.data.local.entity.FridgeItemEntity
 import com.example.data.local.entity.LoggedFoodEntity
 import com.example.data.local.entity.MealPlanEntity
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.local.entity.WaterLogEntity
 import com.example.data.local.entity.WeightLogEntity
@@ -141,4 +142,29 @@ interface FitlitDao {
 
     @Query("DELETE FROM user_profile")
     suspend fun clearUserProfile()
+
+    // To-Do and Daily Schedule Tasks
+    @Query("SELECT * FROM todos ORDER BY isCompleted ASC, dueTimestamp ASC, id DESC")
+    fun getAllTodos(): Flow<List<TodoEntity>>
+
+    @Query("SELECT * FROM todos WHERE dueDateStr = :dateStr ORDER BY isCompleted ASC, dueTimestamp ASC")
+    fun getTodosForDate(dateStr: String): Flow<List<TodoEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTodo(todo: TodoEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTodos(todos: List<TodoEntity>)
+
+    @Update
+    suspend fun updateTodo(todo: TodoEntity)
+
+    @Query("UPDATE todos SET isCompleted = :isCompleted, completedTimestamp = :completedTimestamp WHERE id = :id")
+    suspend fun setTodoCompleted(id: Long, isCompleted: Boolean, completedTimestamp: Long?)
+
+    @Query("DELETE FROM todos WHERE id = :id")
+    suspend fun deleteTodoById(id: Long)
+
+    @Query("DELETE FROM todos")
+    suspend fun clearAllTodos()
 }

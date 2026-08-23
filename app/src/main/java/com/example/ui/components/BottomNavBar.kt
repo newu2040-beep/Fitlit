@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,19 +22,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.InsertChart
 import androidx.compose.material.icons.rounded.Kitchen
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -39,20 +46,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.GlassBorderLight
-import com.example.ui.theme.LimeGradientEnd
-import com.example.ui.theme.LimeGradientStart
-import com.example.ui.theme.LimePrimaryDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextOnLime
-import com.example.ui.theme.TextPrimary
 
-enum class FitlitNavDestination(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home),
-    PLAN("Plan", Icons.Rounded.DateRange),
-    FRIDGE("Fridge", Icons.Rounded.Kitchen),
-    TRACKING("Tracking", Icons.Rounded.InsertChart),
-    PROFILE("Profile", Icons.Rounded.Person)
+enum class FitlitNavDestination(val route: String, val label: String, val icon: ImageVector) {
+    HOME("home", "Home", Icons.Rounded.Home),
+    PLAN("plan", "Plan", Icons.Rounded.DateRange),
+    TASKS("tasks", "Tasks", Icons.Rounded.CheckCircle),
+    TRACKING("tracking", "Tracking", Icons.Rounded.InsertChart),
+    PROFILE("profile", "Profile", Icons.Rounded.Person)
 }
 
 @Composable
@@ -62,14 +62,20 @@ fun FitlitBottomBar(
     onQuickAddClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val barBgColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+    val barBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Floating glass bar container
+        // Floating glass bar container adaptive to current Theme
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -77,20 +83,20 @@ fun FitlitBottomBar(
                 .shadow(
                     elevation = 16.dp,
                     shape = RoundedCornerShape(34.dp),
-                    ambientColor = Color(0x14000000),
-                    spotColor = Color(0x30A6E324)
+                    ambientColor = Color.Black.copy(alpha = 0.25f),
+                    spotColor = primaryColor.copy(alpha = 0.3f)
                 )
                 .clip(RoundedCornerShape(34.dp))
-                .background(Color(0xF0FFFFFF))
-                .border(1.dp, Color(0x60FFFFFF), RoundedCornerShape(34.dp))
-                .padding(horizontal = 14.dp)
+                .background(barBgColor)
+                .border(1.2.dp, barBorderColor, RoundedCornerShape(34.dp))
+                .padding(horizontal = 8.dp)
         ) {
             Row(
                 modifier = Modifier.matchParentSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceAround
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Home
+                // 1. Home Tab
                 NavTabItem(
                     label = "Home",
                     icon = Icons.Rounded.Home,
@@ -99,7 +105,7 @@ fun FitlitBottomBar(
                     testTag = "nav_home"
                 )
 
-                // Plan
+                // 2. Plan Tab
                 NavTabItem(
                     label = "Plan",
                     icon = Icons.Rounded.DateRange,
@@ -108,10 +114,16 @@ fun FitlitBottomBar(
                     testTag = "nav_plan"
                 )
 
-                // Spacer for Center Action Button
-                Box(modifier = Modifier.size(52.dp))
+                // 3. Tasks / To-Do Tab
+                NavTabItem(
+                    label = "Tasks",
+                    icon = Icons.Rounded.CheckCircle,
+                    selected = currentDestination == "tasks",
+                    onClick = { onNavigate("tasks") },
+                    testTag = "nav_tasks"
+                )
 
-                // Tracking
+                // 4. Tracking Tab
                 NavTabItem(
                     label = "Tracking",
                     icon = Icons.Rounded.InsertChart,
@@ -120,7 +132,7 @@ fun FitlitBottomBar(
                     testTag = "nav_tracking"
                 )
 
-                // Profile
+                // 5. Profile Tab
                 NavTabItem(
                     label = "Profile",
                     icon = Icons.Rounded.Person,
@@ -129,40 +141,6 @@ fun FitlitBottomBar(
                     testTag = "nav_profile"
                 )
             }
-        }
-
-        // Center Floating Action Button with Glowing Lime Gradient
-        Box(
-            modifier = Modifier
-                .offset(y = (-14).dp)
-                .size(56.dp)
-                .shadow(
-                    elevation = 10.dp,
-                    shape = CircleShape,
-                    ambientColor = Color(0x20000000),
-                    spotColor = Color(0x60A6E324)
-                )
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(LimeGradientStart, LimeGradientEnd, LimePrimaryDark)
-                    )
-                )
-                .border(2.dp, Color(0x99FFFFFF), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onQuickAddClick
-                )
-                .testTag("nav_quick_add"),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = "Quick Log",
-                tint = TextOnLime,
-                modifier = Modifier.size(28.dp)
-            )
         }
     }
 }
@@ -175,15 +153,35 @@ private fun NavTabItem(
     onClick: () -> Unit,
     testTag: String
 ) {
-    val iconColor = if (selected) LimePrimaryDark else TextMuted
-    val textColor = if (selected) TextPrimary else TextMuted
-    val fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+    val activeColor = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val pillBgColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) activeColor else inactiveColor,
+        label = "tabIconTint"
+    )
+    val textTint by animateColorAsState(
+        targetValue = if (selected) activeColor else inactiveColor,
+        label = "tabTextTint"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.06f else 1.0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "tabScale"
+    )
 
     Column(
         modifier = Modifier
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .background(if (selected) pillBgColor else Color.Transparent)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
             .testTag(testTag),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -191,14 +189,14 @@ private fun NavTabItem(
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = iconColor,
-            modifier = Modifier.size(22.dp)
+            tint = iconTint,
+            modifier = Modifier.size(20.dp)
         )
         Text(
             text = label,
-            fontSize = 11.sp,
-            fontWeight = fontWeight,
-            color = textColor
+            fontSize = 10.5.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = textTint
         )
     }
 }

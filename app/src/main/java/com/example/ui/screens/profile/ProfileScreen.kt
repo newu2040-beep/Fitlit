@@ -61,15 +61,20 @@ import com.example.ui.theme.StepsGreen
 import com.example.util.LiveStepState
 import com.example.util.PermissionUtils
 
+import androidx.compose.material.icons.rounded.Key
+import com.example.util.ApiKeyStatus
+
 @Composable
 fun ProfileScreen(
     profile: UserProfileEntity?,
     stepState: LiveStepState,
     currentTheme: FitlitThemeMode,
+    geminiKeyStatus: ApiKeyStatus = ApiKeyStatus.ACTIVE_DEFAULT,
     onEditGoalClick: () -> Unit,
     onShowSafetyDisclaimer: () -> Unit,
     onManagePermissionsClick: () -> Unit,
     onOpenThemePicker: () -> Unit,
+    onOpenApiKeyManager: () -> Unit = {},
     onOpenPhotoPicker: () -> Unit,
     onOpenResetData: () -> Unit,
     modifier: Modifier = Modifier
@@ -236,6 +241,80 @@ fun ProfileScreen(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Gemini API Key & Quota Management Card
+                item {
+                    LiquidGlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("profile_gemini_key_card"),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline,
+                        onClick = onOpenApiKeyManager
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.primaryContainer
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Key,
+                                        contentDescription = null,
+                                        tint = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column {
+                                    Text(
+                                        text = "Gemini API Key & Quota",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Status: ${geminiKeyStatus.label}",
+                                        fontSize = 12.sp,
+                                        color = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange.copy(alpha = 0.2f)
+                                        else MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) "Fix Quota" else "Configure",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.primary
                                 )
                             }
                         }

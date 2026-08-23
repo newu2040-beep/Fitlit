@@ -1,5 +1,6 @@
 package com.example.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,16 +24,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DirectionsWalk
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,10 +52,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.local.entity.MealPlanEntity
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.repository.TodayNutritionSummary
 import com.example.ui.components.CircularGoalRing
@@ -52,11 +65,14 @@ import com.example.ui.components.LiquidGlassCard
 import com.example.ui.components.RealtimeStepsHUD
 import com.example.ui.components.UserAvatarView
 import com.example.ui.theme.CalorieOrange
-import com.example.ui.theme.LimePrimary
-import com.example.ui.theme.LimePrimaryDark
 import com.example.ui.theme.ProteinBlue
 import com.example.ui.theme.StepsGreen
+import com.example.util.ApiKeyStatus
 import com.example.util.LiveStepState
+import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun HomeScreen(
@@ -64,19 +80,46 @@ fun HomeScreen(
     nutritionSummary: TodayNutritionSummary,
     stepState: LiveStepState,
     meals: List<MealPlanEntity>,
+    todos: List<TodoEntity>,
+    geminiKeyStatus: ApiKeyStatus,
     onPlanCardClick: () -> Unit,
     onFridgeCardClick: () -> Unit,
     onMealClick: (MealPlanEntity) -> Unit,
     onNotificationClick: () -> Unit,
     onThemePickerClick: () -> Unit,
+    onManageApiKeyClick: () -> Unit,
     onAvatarClick: () -> Unit,
     onToggleLiveWalk: () -> Unit,
     onAddQuickSteps: (Int) -> Unit,
     onSeeAllMealsClick: () -> Unit,
+    onNavigateToTasks: () -> Unit,
+    onToggleTodo: (TodoEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
     val userName = profile?.name ?: "Rahul"
+
+    var currentEpochMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // Live clock ticker
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentEpochMillis = System.currentTimeMillis()
+            delay(1000L)
+        }
+    }
+
+    val now = LocalDateTime.now()
+    val liveFormattedTime = now.format(DateTimeFormatter.ofPattern("hh:mm:ss a"))
+    val liveDateStr = now.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+
+    val todayStr = LocalDate.now().toString()
+    val todayTodos = remember(todos) {
+        todos.filter { it.dueDateStr == todayStr }
+    }
+    val pendingTodos = remember(todayTodos) {
+        todayTodos.filter { !it.isCompleted }.take(3)
+    }
 
     Box(
         modifier = modifier
@@ -92,7 +135,7 @@ fun HomeScreen(
                 .padding(bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Header: User Avatar + "Good morning, Rahul" + Quick Theme & Notification actions
+            // Header: User Avatar + "Good morning, Rahul" + Live Date/Time + Quick Theme & Key actions
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -112,12 +155,30 @@ fun HomeScreen(
                     )
 
                     Column {
-                        Text(
-                            text = "Good morning,",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Good day,",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "$liveDateStr • $liveFormattedTime",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -138,15 +199,34 @@ fun HomeScreen(
                     }
                 }
 
-                // Action Buttons: Theme Switcher & Notification Bell
+                // Action Buttons: API Key, Theme Switcher & Notification Bell
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // API Key Config Button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .clickable(onClick = onManageApiKeyClick)
+                            .testTag("home_api_key_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Key,
+                            contentDescription = "Gemini Key",
+                            tint = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+
                     // Theme Switcher Button
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surface)
                             .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
@@ -157,15 +237,15 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Rounded.Palette,
                             contentDescription = "Themes & AMOLED",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
 
                     // Glass Notification Bell button
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surface)
                             .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
@@ -177,7 +257,7 @@ fun HomeScreen(
                             imageVector = Icons.Rounded.Notifications,
                             contentDescription = "Notifications",
                             tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }
@@ -251,6 +331,89 @@ fun HomeScreen(
                                 iconBg = MaterialTheme.colorScheme.surfaceVariant,
                                 label = "Steps",
                                 value = "${String.format("%,d", nutritionSummary.totalSteps)} / ${String.format("%,d", nutritionSummary.targetSteps)}"
+                            )
+                        }
+                    }
+                }
+            }
+
+            // "Today's Schedule & To-Dos" Section Card
+            LiquidGlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_schedule_section_card"),
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                borderColor = MaterialTheme.colorScheme.outline
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Today's Schedule & Tasks",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Text(
+                            text = "View all (${todayTodos.size})",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clickable(onClick = onNavigateToTasks)
+                                .testTag("home_view_all_tasks")
+                        )
+                    }
+
+                    if (pendingTodos.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = StepsGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = if (todayTodos.isNotEmpty()) "All today's tasks completed! 🎉" else "No tasks scheduled for today",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        pendingTodos.forEach { todo ->
+                            HomeTodoRow(
+                                todo = todo,
+                                currentEpochMillis = currentEpochMillis,
+                                onToggle = { onToggleTodo(todo) }
                             )
                         }
                     }
@@ -413,6 +576,85 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeTodoRow(
+    todo: TodoEntity,
+    currentEpochMillis: Long,
+    onToggle: () -> Unit
+) {
+    val minuteText = remember(todo.dueTimestamp, currentEpochMillis) {
+        if (todo.dueTimestamp > 0) {
+            val diffMins = ((todo.dueTimestamp - currentEpochMillis) / 60000L).toInt()
+            when {
+                diffMins > 60 -> "in ${diffMins / 60}h ${diffMins % 60}m"
+                diffMins in 1..60 -> "in $diffMins mins"
+                diffMins == 0 -> "now"
+                diffMins in -60..-1 -> "${-diffMins}m late"
+                else -> "${-diffMins / 60}h late"
+            }
+        } else {
+            ""
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                .clickable(onClick = onToggle),
+            contentAlignment = Alignment.Center
+        ) {
+            if (todo.isCompleted) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = StepsGreen,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = todo.title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Text(
+                text = "${todo.dueTimeStr} ${if (minuteText.isNotBlank()) "• $minuteText" else ""}",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = todo.category,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

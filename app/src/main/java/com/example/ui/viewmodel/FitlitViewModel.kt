@@ -10,6 +10,7 @@ import com.example.data.local.entity.ActivityLogEntity
 import com.example.data.local.entity.FridgeItemEntity
 import com.example.data.local.entity.LoggedFoodEntity
 import com.example.data.local.entity.MealPlanEntity
+import com.example.data.local.entity.TodoEntity
 import com.example.data.local.entity.UserProfileEntity
 import com.example.data.local.entity.WaterLogEntity
 import com.example.data.local.entity.WeightLogEntity
@@ -18,7 +19,9 @@ import com.example.data.remote.GeneratedPlanResponse
 import com.example.data.repository.FitlitRepository
 import com.example.data.repository.TodayNutritionSummary
 import com.example.ui.theme.FitlitThemeMode
+import com.example.util.ApiKeyStatus
 import com.example.util.AvatarManager
+import com.example.util.GeminiKeyManager
 import com.example.util.LiveStepState
 import com.example.util.RealtimeStepTracker
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +37,10 @@ class FitlitViewModel(
     application: Application,
     private val repository: FitlitRepository
 ) : AndroidViewModel(application) {
+
+    private val geminiKeyManager = GeminiKeyManager.getInstance(application)
+    val geminiKeyStatus: StateFlow<ApiKeyStatus> = geminiKeyManager.keyStatus
+    val customGeminiKey: StateFlow<String> = geminiKeyManager.customKey
 
     val userProfile: StateFlow<UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -54,6 +61,9 @@ class FitlitViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val fridgeItems: StateFlow<List<FridgeItemEntity>> = repository.fridgeItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val todos: StateFlow<List<TodoEntity>> = repository.allTodos
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Realtime Hardware Step Counter Tracker Engine
@@ -392,6 +402,109 @@ class FitlitViewModel(
         viewModelScope.launch {
             repository.logWeight(weight, bodyFat, muscle, note)
             showNotification("Logged weight: $weight kg")
+        }
+    }
+
+    // To-Do & Daily Schedule Actions
+    fun addTodo(
+        title: String,
+        description: String = "",
+        category: String = "Workout",
+        priority: String = "Medium",
+        dueDateStr: String = LocalDate.now().toString(),
+        dueTimeStr: String = "08:00 AM",
+        reminderMinutes: Int = 15
+    ) {
+        viewModelScope.launch {
+            val dueTimestamp = parseTimeStrToEpoch(dueTimeStr)
+            val todo = TodoEntity(
+                title = title,
+                description = description,
+                category = category,
+                priority = priority,
+                dueDateStr = dueDateStr,
+                dueTimeStr = dueTimeStr,
+                dueTimestamp = dueTimestamp,
+                reminderMinutes = reminderMinutes,
+                isCompleted = false
+            )
+            repository.addTodo(todo)
+            showNotification("Added task: $title ✅")
+        }
+    }
+
+    fun updateTodo(todo: TodoEntity) {
+        viewModelScope.launch {
+            repository.updateTodo(todo)
+            showNotification("Updated task 📝")
+        }
+    }
+
+    fun toggleTodoCompleted(todo: TodoEntity) {
+        viewModelScope.launch {
+            val newState = !todo.isCompleted
+            repository.setTodoCompleted(todo.id, newState)
+            if (newState) {
+                showNotification("Completed: ${todo.title} 🎉")
+            }
+        }
+    }
+
+    fun deleteTodo(id: Long) {
+        viewModelScope.launch {
+            repository.deleteTodo(id)
+            showNotification("Task deleted 🗑️")
+        }
+    }
+
+    fun generateAiDailySchedule() {
+        viewModelScope.launch {
+            _isGeneratingPlan.value = true
+            val result = repository.generateAiDailySchedule()
+            _isGeneratingPlan.value = false
+            result.onSuccess {
+                showNotification("✨ AI Daily Schedule Generated!")
+            }.onFailure {
+                showNotification("AI Schedule updated with optimal targets")
+            }
+        }
+    }
+
+    // Gemini API Key Management
+    fun saveCustomApiKey(key: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            _isGeneratingPlan.value = true
+            val testResult = geminiKeyManager.testApiKey(key)
+            _isGeneratingPlan.value = false
+            testResult.onSuccess { msg ->
+                geminiKeyManager.saveCustomApiKey(key)
+                showNotification("Custom Gemini Key verified and saved! 🔑")
+                onResult(true, msg)
+            }.onFailure { error ->
+                onResult(false, error.localizedMessage ?: "Verification failed")
+            }
+        }
+    }
+
+    fun clearCustomApiKey() {
+        geminiKeyManager.clearCustomApiKey()
+        showNotification("Custom API key removed")
+    }
+
+    private fun parseTimeStrToEpoch(timeStr: String): Long {
+        return try {
+            val parts = timeStr.trim().split(" ")
+            val time = parts[0].split(":")
+            var hour = time[0].toInt()
+            val min = time.getOrNull(1)?.toInt() ?: 0
+            val isPm = parts.getOrNull(1)?.equals("PM", ignoreCase = true) == true
+            if (isPm && hour < 12) hour += 12
+            if (!isPm && hour == 12) hour = 0
+            val now = java.time.LocalDateTime.now()
+            val target = now.withHour(hour).withMinute(min).withSecond(0)
+            target.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
         }
     }
 

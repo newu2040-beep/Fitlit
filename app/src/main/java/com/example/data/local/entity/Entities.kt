@@ -105,3 +105,21 @@ data class WaterLogEntity(
     val amountMl: Int,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "todos")
+data class TodoEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val description: String = "",
+    val category: String = "Workout", // "Workout", "Nutrition", "Hydration", "Supplement", "Habit", "General"
+    val priority: String = "Medium", // "High", "Medium", "Low"
+    val dueDateStr: String = "", // e.g. "2026-08-23" or formatted
+    val dueTimeStr: String = "08:00 AM", // e.g. "07:30 AM" or "14:30"
+    val dueTimestamp: Long = 0L, // timestamp in millis for countdown & sorting
+    val reminderMinutes: Int = 0, // 0 = at time, 15, 30, 60
+    val isCompleted: Boolean = false,
+    val completedTimestamp: Long? = null,
+    val isAiGenerated: Boolean = false,
+    val createdTimestamp: Long = System.currentTimeMillis()
+)
+

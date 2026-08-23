@@ -33,7 +33,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -46,7 +45,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.data.local.entity.TodoEntity
+import com.example.ui.components.AddEditTodoBottomSheet
 import com.example.ui.components.FitlitBottomBar
+import com.example.ui.components.GeminiApiKeyBottomSheet
 import com.example.ui.components.PermissionsBottomSheet
 import com.example.ui.components.PhotoPickerBottomSheet
 import com.example.ui.components.ResetDataBottomSheet
@@ -58,6 +60,7 @@ import com.example.ui.screens.home.QuickAddSheet
 import com.example.ui.screens.plan.MealDetailBottomSheet
 import com.example.ui.screens.plan.MealPlanScreen
 import com.example.ui.screens.profile.ProfileScreen
+import com.example.ui.screens.todo.TodoScreen
 import com.example.ui.screens.tracking.TrackingScreen
 import com.example.ui.screens.welcome.OnboardingScreen
 import com.example.ui.screens.welcome.WelcomeScreen
@@ -107,6 +110,9 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     val nutritionSummary by viewModel.nutritionSummary.collectAsState()
     val weightLogs by viewModel.weightLogs.collectAsState()
     val fridgeItems by viewModel.fridgeItems.collectAsState()
+    val todos by viewModel.todos.collectAsState()
+    val geminiKeyStatus by viewModel.geminiKeyStatus.collectAsState()
+    val customGeminiKey by viewModel.customGeminiKey.collectAsState()
     val isGeneratingPlan by viewModel.isGeneratingPlan.collectAsState()
     val isAnalyzingPhoto by viewModel.isAnalyzingPhoto.collectAsState()
     val suggestedFridgeMeals by viewModel.generatedFridgeMeals.collectAsState()
@@ -120,6 +126,9 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     var showThemeSheet by remember { mutableStateOf(false) }
     var showPhotoPickerSheet by remember { mutableStateOf(false) }
     var showResetDataSheet by remember { mutableStateOf(false) }
+    var showApiKeySheet by remember { mutableStateOf(false) }
+    var showAddTodoSheet by remember { mutableStateOf(false) }
+    var todoToEdit by remember { mutableStateOf<TodoEntity?>(null) }
 
     val quickAddSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val mealDetailSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -134,7 +143,7 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     ) { results ->
         val grantedCount = results.values.count { it }
         if (grantedCount > 0) {
-            viewModel.showNotification("App permissions updated! Full sensor & gallery access enabled ✨")
+            viewModel.showNotification("App permissions updated! Full sensor & storage access enabled ✨")
         }
     }
 
@@ -152,8 +161,8 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
         }
     }
 
-    // Determine if bottom bar should show (only on main tabs: home, plan, tracking, profile, fridge)
-    val showBottomBar = currentRoute in listOf("home", "plan", "tracking", "profile", "fridge")
+    // Main tabs with bottom bar
+    val showBottomBar = currentRoute in listOf("home", "plan", "tasks", "tracking", "profile", "fridge")
 
     val startDestination = if (profile?.hasCompletedOnboarding == true) "home" else "welcome"
 
@@ -211,8 +220,7 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
         ) {
             composable("welcome") {
                 WelcomeScreen(
-                    onGetStartedClick = { navController.navigate("onboarding") },
-                    onLoginClick = { navController.navigate("home") }
+                    onGetStartedClick = { navController.navigate("onboarding") }
                 )
             }
 
@@ -235,15 +243,20 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     nutritionSummary = nutritionSummary,
                     stepState = stepState,
                     meals = meals,
+                    todos = todos,
+                    geminiKeyStatus = geminiKeyStatus,
                     onPlanCardClick = { navController.navigate("plan") },
                     onFridgeCardClick = { navController.navigate("fridge") },
                     onMealClick = { meal -> viewModel.setSelectedMealDetail(meal) },
                     onNotificationClick = { viewModel.showNotification("Daily goal progress: ${nutritionSummary.overallGoalProgressPercent}%! 🌟") },
                     onThemePickerClick = { showThemeSheet = true },
+                    onManageApiKeyClick = { showApiKeySheet = true },
                     onAvatarClick = { showPhotoPickerSheet = true },
                     onToggleLiveWalk = { viewModel.toggleLiveWalkSimulation() },
                     onAddQuickSteps = { count -> viewModel.addQuickSteps(count) },
-                    onSeeAllMealsClick = { navController.navigate("plan") }
+                    onSeeAllMealsClick = { navController.navigate("plan") },
+                    onNavigateToTasks = { navController.navigate("tasks") },
+                    onToggleTodo = { todo -> viewModel.toggleTodoCompleted(todo) }
                 )
             }
 
@@ -259,6 +272,26 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     onToggleFavorite = { meal -> viewModel.toggleMealFavorite(meal) },
                     onLogMeal = { meal -> viewModel.logMealAsEaten(meal) },
                     onFilterClick = { navController.navigate("onboarding") }
+                )
+            }
+
+            composable("tasks") {
+                TodoScreen(
+                    todos = todos,
+                    isGeneratingSchedule = isGeneratingPlan,
+                    geminiKeyStatus = geminiKeyStatus,
+                    onAddTodoClick = {
+                        todoToEdit = null
+                        showAddTodoSheet = true
+                    },
+                    onEditTodoClick = { todo ->
+                        todoToEdit = todo
+                        showAddTodoSheet = true
+                    },
+                    onToggleCompleted = { todo -> viewModel.toggleTodoCompleted(todo) },
+                    onDeleteTodo = { id -> viewModel.deleteTodo(id) },
+                    onGenerateAiSchedule = { viewModel.generateAiDailySchedule() },
+                    onManageApiKeyClick = { showApiKeySheet = true }
                 )
             }
 
@@ -296,14 +329,69 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     profile = profile,
                     stepState = stepState,
                     currentTheme = currentTheme,
+                    geminiKeyStatus = geminiKeyStatus,
                     onEditGoalClick = { navController.navigate("onboarding") },
                     onShowSafetyDisclaimer = { showSafetyModal = true },
                     onManagePermissionsClick = { showPermissionsSheet = true },
                     onOpenThemePicker = { showThemeSheet = true },
+                    onOpenApiKeyManager = { showApiKeySheet = true },
                     onOpenPhotoPicker = { showPhotoPickerSheet = true },
                     onOpenResetData = { showResetDataSheet = true }
                 )
             }
+        }
+
+        // Add / Edit Todo Bottom Sheet
+        if (showAddTodoSheet) {
+            AddEditTodoBottomSheet(
+                todoToEdit = todoToEdit,
+                onSaveTodo = { title, description, category, priority, dueDateStr, dueTimeStr, reminderMinutes ->
+                    if (todoToEdit != null) {
+                        viewModel.updateTodo(
+                            todoToEdit!!.copy(
+                                title = title,
+                                description = description,
+                                category = category,
+                                priority = priority,
+                                dueDateStr = dueDateStr,
+                                dueTimeStr = dueTimeStr,
+                                reminderMinutes = reminderMinutes
+                            )
+                        )
+                    } else {
+                        viewModel.addTodo(
+                            title = title,
+                            description = description,
+                            category = category,
+                            priority = priority,
+                            dueDateStr = dueDateStr,
+                            dueTimeStr = dueTimeStr,
+                            reminderMinutes = reminderMinutes
+                        )
+                    }
+                    showAddTodoSheet = false
+                    todoToEdit = null
+                },
+                onDismiss = {
+                    showAddTodoSheet = false
+                    todoToEdit = null
+                }
+            )
+        }
+
+        // Gemini API Key Bottom Sheet
+        if (showApiKeySheet) {
+            GeminiApiKeyBottomSheet(
+                currentStatus = geminiKeyStatus,
+                currentCustomKey = customGeminiKey,
+                onSaveKey = { key, callback ->
+                    viewModel.saveCustomApiKey(key, callback)
+                },
+                onClearKey = {
+                    viewModel.clearCustomApiKey()
+                },
+                onDismiss = { showApiKeySheet = false }
+            )
         }
 
         // Reset Data & Storage Bottom Sheet
@@ -381,43 +469,54 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                 meal = meal,
                 sheetState = mealDetailSheetState,
                 onDismiss = { viewModel.setSelectedMealDetail(null) },
-                onLogAsEaten = { viewModel.logMealAsEaten(meal) },
-                onSwapMeal = { viewModel.swapMeal(meal.id, meal.mealType) }
+                onLogAsEaten = {
+                    viewModel.logMealAsEaten(meal)
+                    viewModel.setSelectedMealDetail(null)
+                },
+                onSwapMeal = {
+                    viewModel.swapMeal(meal.id, meal.mealType)
+                    viewModel.setSelectedMealDetail(null)
+                }
             )
         }
 
-        // Quick Add Sheet
+        // Quick Add Bottom Sheet
         if (showQuickAddSheet) {
             QuickAddSheet(
                 sheetState = quickAddSheetState,
                 onDismiss = { showQuickAddSheet = false },
-                onLogFood = { name, type, cal, p, c, f ->
-                    viewModel.logCustomFoodItem(name, type, cal, p, c, f)
+                onLogFood = { name, mealType, cals, p, c, f ->
+                    viewModel.logCustomFoodItem(name, mealType, cals, p, c, f)
+                    showQuickAddSheet = false
                 },
-                onLogNaturalFood = { text, type ->
-                    viewModel.parseAndLogNaturalFoodText(text, type)
+                onLogNaturalFood = { text, mealType ->
+                    viewModel.parseAndLogNaturalFoodText(text, mealType)
+                    showQuickAddSheet = false
                 },
-                onLogActivity = { name, mins, cal, steps ->
-                    viewModel.logActivity(name, mins, cal, steps)
+                onLogActivity = { name, mins, cals, steps ->
+                    viewModel.logActivity(name, mins, cals, steps)
+                    showQuickAddSheet = false
                 },
                 onLogWeight = { w, bf, mm ->
                     viewModel.logWeight(w, bf, mm)
+                    showQuickAddSheet = false
                 },
                 onAddWater = { ml ->
                     viewModel.addWater(ml)
+                    showQuickAddSheet = false
                 },
                 onAnalyzePlate = { bitmap ->
-                    viewModel.analyzeFoodPlatePhoto(bitmap) { detected ->
+                    viewModel.analyzeFoodPlatePhoto(bitmap) { meal ->
                         viewModel.logCustomFoodItem(
-                            name = detected.title,
-                            mealType = detected.mealType,
-                            calories = detected.calories,
-                            protein = detected.proteinG,
-                            carbs = detected.carbsG,
-                            fats = detected.fatG
+                            name = meal.title,
+                            mealType = meal.mealType,
+                            calories = meal.calories,
+                            protein = meal.proteinG,
+                            carbs = meal.carbsG,
+                            fats = meal.fatG
                         )
-                        showQuickAddSheet = false
                     }
+                    showQuickAddSheet = false
                 },
                 isAnalyzing = isAnalyzingPhoto
             )
