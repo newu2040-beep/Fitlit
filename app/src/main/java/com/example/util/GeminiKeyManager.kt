@@ -111,7 +111,7 @@ class GeminiKeyManager private constructor(context: Context) {
             )
 
             val response = service.generateContent(
-                model = "gemini-3.5-flash",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = testRequest
             )

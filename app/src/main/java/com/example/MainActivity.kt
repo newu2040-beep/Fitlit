@@ -1,7 +1,7 @@
 package com.example
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -69,7 +69,7 @@ import com.example.ui.viewmodel.FitlitViewModel
 import com.example.ui.viewmodel.FitlitViewModelFactory
 import com.example.util.PermissionUtils
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: FitlitViewModel by viewModels {
         val app = application as FitlitApplication
@@ -162,7 +162,7 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     }
 
     // Main tabs with bottom bar
-    val showBottomBar = currentRoute in listOf("home", "plan", "tasks", "tracking", "profile", "fridge")
+    val showBottomBar = currentRoute in listOf("home", "plan", "tasks", "tracking", "insight", "profile", "fridge")
 
     val startDestination = if (profile?.hasCompletedOnboarding == true) "home" else "welcome"
 
@@ -250,7 +250,6 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     onMealClick = { meal -> viewModel.setSelectedMealDetail(meal) },
                     onNotificationClick = { viewModel.showNotification("Daily goal progress: ${nutritionSummary.overallGoalProgressPercent}%! 🌟") },
                     onThemePickerClick = { showThemeSheet = true },
-                    onManageApiKeyClick = { showApiKeySheet = true },
                     onAvatarClick = { showPhotoPickerSheet = true },
                     onToggleLiveWalk = { viewModel.toggleLiveWalkSimulation() },
                     onAddQuickSteps = { count -> viewModel.addQuickSteps(count) },
@@ -291,7 +290,6 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     onToggleCompleted = { todo -> viewModel.toggleTodoCompleted(todo) },
                     onDeleteTodo = { id -> viewModel.deleteTodo(id) },
                     onGenerateAiSchedule = { viewModel.generateAiDailySchedule() },
-                    onManageApiKeyClick = { showApiKeySheet = true }
                 )
             }
 
@@ -324,6 +322,12 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                 )
             }
 
+            composable("insight") {
+                com.example.ui.screens.insight.InsightScreen(
+                    onSendMessage = { query -> viewModel.chatWithInsight(query) }
+                )
+            }
+
             composable("profile") {
                 ProfileScreen(
                     profile = profile,
@@ -334,7 +338,20 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     onShowSafetyDisclaimer = { showSafetyModal = true },
                     onManagePermissionsClick = { showPermissionsSheet = true },
                     onOpenThemePicker = { showThemeSheet = true },
-                    onOpenApiKeyManager = { showApiKeySheet = true },
+                    onOpenApiKeyManager = {
+                        val activity = context as? androidx.fragment.app.FragmentActivity
+                        if (activity != null) {
+                            com.example.util.BiometricAuth.authenticate(
+                                activity = activity,
+                                title = "Unlock API Key Manager",
+                                subtitle = "Authenticate to view or edit Gemini API Keys",
+                                onSuccess = { showApiKeySheet = true },
+                                onError = { msg -> viewModel.showNotification(msg) }
+                            )
+                        } else {
+                            viewModel.showNotification("Biometric activity context missing")
+                        }
+                    },
                     onOpenPhotoPicker = { showPhotoPickerSheet = true },
                     onOpenResetData = { showResetDataSheet = true }
                 )

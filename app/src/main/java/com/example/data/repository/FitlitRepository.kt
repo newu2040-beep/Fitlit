@@ -54,6 +54,10 @@ class FitlitRepository(
         return dao.getUserProfileOnce()
     }
 
+    suspend fun chatWithInsight(query: String, profile: UserProfileEntity?): String {
+        return aiRepository.chatWithInsight(query, profile)
+    }
+
     // Meal Plans
     val mealPlans: Flow<List<MealPlanEntity>> = dao.getAllMealPlans()
 

@@ -87,7 +87,6 @@ fun HomeScreen(
     onMealClick: (MealPlanEntity) -> Unit,
     onNotificationClick: () -> Unit,
     onThemePickerClick: () -> Unit,
-    onManageApiKeyClick: () -> Unit,
     onAvatarClick: () -> Unit,
     onToggleLiveWalk: () -> Unit,
     onAddQuickSteps: (Int) -> Unit,
@@ -199,30 +198,11 @@ fun HomeScreen(
                     }
                 }
 
-                // Action Buttons: API Key, Theme Switcher & Notification Bell
+                // Action Buttons: Theme Switcher & Notification Bell
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // API Key Config Button
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .clickable(onClick = onManageApiKeyClick)
-                            .testTag("home_api_key_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Key,
-                            contentDescription = "Gemini Key",
-                            tint = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
                     // Theme Switcher Button
                     Box(
                         modifier = Modifier

@@ -1,0 +1,11 @@
+--- app/src/main/java/com/example/ui/components/BottomNavBar.kt
++++ app/src/main/java/com/example/ui/components/BottomNavBar.kt
+@@ -137,7 +137,7 @@
+                 // 5. Insight AI Tab
+                 NavTabItem(
+                     label = "Insight",
+-                    icon = androidx.compose.material.icons.Icons.Rounded.Star,
++                    icon = Icons.Rounded.Person, // Fallback for now to fix build
+                     selected = currentDestination == "insight",
+                     onClick = { onNavigate("insight") },
+                     testTag = "nav_insight"

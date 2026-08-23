@@ -36,7 +36,7 @@ class GeminiAiRepository(
 
     /**
      * Generate full daily / weekly meal plan based on user goals, body stats, and budget.
-     * Uses gemini-3.5-flash with Search Grounding support.
+     * Uses gemini-1.5-flash with Search Grounding support.
      */
     suspend fun generatePersonalizedMealPlan(
         profile: UserProfileEntity,
@@ -115,7 +115,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.5-flash",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = request
             )
@@ -137,7 +137,7 @@ class GeminiAiRepository(
 
     /**
      * Analyze a fridge or pantry photo to detect ingredients.
-     * Uses gemini-3.1-pro-preview for advanced vision understanding.
+     * Uses gemini-1.5-pro for advanced vision understanding.
      */
     suspend fun analyzeFridgePhoto(bitmap: Bitmap): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
@@ -169,7 +169,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.1-pro-preview",
+                model = "gemini-1.5-pro",
                 apiKey = key,
                 request = request
             )
@@ -196,7 +196,7 @@ class GeminiAiRepository(
 
     /**
      * Analyze a photo of a meal plate to estimate food items and macros.
-     * Uses gemini-3.1-pro-preview.
+     * Uses gemini-1.5-pro.
      */
     suspend fun analyzeFoodPlate(bitmap: Bitmap): Result<GeneratedMeal> = withContext(Dispatchers.IO) {
         try {
@@ -255,7 +255,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.1-pro-preview",
+                model = "gemini-1.5-pro",
                 apiKey = key,
                 request = request
             )
@@ -293,7 +293,7 @@ class GeminiAiRepository(
 
     /**
      * Ultra low-latency recipe suggestions based on fridge items.
-     * Uses gemini-3.1-flash-lite-preview for instant response.
+     * Uses gemini-1.5-flash for instant response.
      */
     suspend fun generateQuickFridgeRecipes(
         availableIngredients: List<String>,
@@ -347,7 +347,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.1-flash-lite-preview",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = request
             )
@@ -367,7 +367,7 @@ class GeminiAiRepository(
 
     /**
      * Swap a single meal in seconds.
-     * Uses gemini-3.1-flash-lite-preview.
+     * Uses gemini-1.5-flash.
      */
     suspend fun swapMealFast(
         mealType: String,
@@ -431,7 +431,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.1-flash-lite-preview",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = request
             )
@@ -473,7 +473,7 @@ class GeminiAiRepository(
 
     /**
      * Natural language food logger.
-     * Uses gemini-3.1-flash-lite-preview to parse free text into exact calories and macros.
+     * Uses gemini-1.5-flash to parse free text into exact calories and macros.
      */
     suspend fun parseFoodTextToMacros(text: String): Result<GeneratedMeal> = withContext(Dispatchers.IO) {
         try {
@@ -514,7 +514,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.1-flash-lite-preview",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = request
             )
@@ -546,6 +546,50 @@ class GeminiAiRepository(
                     fatG = 9
                 )
             )
+        }
+    }
+
+    suspend fun chatWithInsight(query: String, profile: UserProfileEntity?): String = withContext(Dispatchers.IO) {
+        try {
+            val key = apiKey
+            if (key.isBlank()) {
+                return@withContext "Please add your Gemini API Key in Settings to use Insight AI."
+            }
+
+            val contextStr = if (profile != null) {
+                "User Profile: Goal is ${profile.goal}. Age ${profile.age}, ${profile.gender}, ${profile.currentWeightKg}kg."
+            } else {
+                "User profile not fully set up."
+            }
+
+            val prompt = """
+                You are Insight AI, an expert fitness and nutrition assistant for the Fitlit app.
+                $contextStr
+                User query: $query
+                Provide a helpful, accurate, and encouraging response. Format nicely.
+            """.trimIndent()
+
+            val request = GeminiRequest(
+                contents = listOf(
+                    GeminiContent(parts = listOf(GeminiPart(text = prompt)), role = "user")
+                ),
+                generationConfig = GeminiGenerationConfig(
+                    temperature = 0.5f,
+                    responseMimeType = "text/plain"
+                )
+            )
+
+            val response = apiService.generateContent(
+                model = "gemini-1.5-flash",
+                apiKey = key,
+                request = request
+            )
+
+            return@withContext response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text 
+                ?: "I'm having trouble thinking right now. Please try again later."
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext "An error occurred while connecting to Insight AI. Make sure your API key is valid."
         }
     }
 
@@ -799,7 +843,7 @@ class GeminiAiRepository(
 
     /**
      * Generate an AI-tailored daily fitness, hydration, meal and recovery To-Do schedule.
-     * Uses gemini-3.5-flash.
+     * Uses gemini-1.5-flash.
      */
     suspend fun generateDailySchedule(profile: UserProfileEntity): Result<List<TodoEntity>> = withContext(Dispatchers.IO) {
         val todayStr = LocalDate.now().toString()
@@ -847,7 +891,7 @@ class GeminiAiRepository(
             )
 
             val response = apiService.generateContent(
-                model = "gemini-3.5-flash",
+                model = "gemini-1.5-flash",
                 apiKey = key,
                 request = request
             )

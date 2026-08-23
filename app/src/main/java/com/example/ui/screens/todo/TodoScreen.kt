@@ -94,7 +94,6 @@ fun TodoScreen(
     onToggleCompleted: (TodoEntity) -> Unit,
     onDeleteTodo: (Long) -> Unit,
     onGenerateAiSchedule: () -> Unit,
-    onManageApiKeyClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedFilter by remember { mutableStateOf("All") }
@@ -182,26 +181,6 @@ fun TodoScreen(
                         }
                     }
                 }
-
-                IconButton(
-                    onClick = onManageApiKeyClick,
-                    modifier = Modifier.testTag("todo_api_key_btn")
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Key,
-                            contentDescription = "Gemini Key",
-                            tint = if (geminiKeyStatus == ApiKeyStatus.QUOTA_EXCEEDED) CalorieOrange else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-                }
             }
 
             // Quota Exceeded / Missing Key Warning Banner
@@ -213,7 +192,6 @@ fun TodoScreen(
                         .clip(RoundedCornerShape(12.dp))
                         .background(CalorieOrange.copy(alpha = 0.12f))
                         .border(1.dp, CalorieOrange.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                        .clickable(onClick = onManageApiKeyClick)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(

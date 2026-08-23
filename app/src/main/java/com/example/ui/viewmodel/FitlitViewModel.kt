@@ -491,6 +491,10 @@ class FitlitViewModel(
         showNotification("Custom API key removed")
     }
 
+    suspend fun chatWithInsight(query: String): String {
+        return repository.chatWithInsight(query, userProfile.value)
+    }
+
     private fun parseTimeStrToEpoch(timeStr: String): Long {
         return try {
             val parts = timeStr.trim().split(" ")

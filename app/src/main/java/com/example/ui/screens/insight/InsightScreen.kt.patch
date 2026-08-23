@@ -1,0 +1,20 @@
+--- app/src/main/java/com/example/ui/screens/insight/InsightScreen.kt
++++ app/src/main/java/com/example/ui/screens/insight/InsightScreen.kt
+@@ -8,7 +8,7 @@
+ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+-import androidx.compose.material.icons.rounded.Star
++import androidx.compose.material.icons.rounded.Person
+ import androidx.compose.material.icons.rounded.Send
+ import androidx.compose.material3.*
+ import androidx.compose.runtime.*
+@@ -43,7 +43,7 @@
+         ) {
+             Row(verticalAlignment = Alignment.CenterVertically) {
+                 Icon(
+-                    imageVector = Icons.Rounded.Star,
++                    imageVector = Icons.Rounded.Person,
+                     contentDescription = null,
+                     tint = MaterialTheme.colorScheme.primary,
+                     modifier = Modifier.size(28.dp)

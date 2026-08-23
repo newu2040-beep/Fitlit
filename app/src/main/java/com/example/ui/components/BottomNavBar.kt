@@ -125,14 +125,23 @@ fun FitlitBottomBar(
 
                 // 4. Tracking Tab
                 NavTabItem(
-                    label = "Tracking",
+                    label = "Track",
                     icon = Icons.Rounded.InsertChart,
                     selected = currentDestination == "tracking",
                     onClick = { onNavigate("tracking") },
                     testTag = "nav_tracking"
                 )
+                
+                // 5. Insight AI Tab
+                NavTabItem(
+                    label = "Insight",
+                    icon = androidx.compose.material.icons.Icons.Rounded.Person,
+                    selected = currentDestination == "insight",
+                    onClick = { onNavigate("insight") },
+                    testTag = "nav_insight"
+                )
 
-                // 5. Profile Tab
+                // 6. Profile Tab
                 NavTabItem(
                     label = "Profile",
                     icon = Icons.Rounded.Person,
