@@ -1,3 +1,4 @@
+cat << 'INNER_EOF' > app/src/main/java/com/example/data/remote/GeminiApiService.kt
 package com.example.data.remote
 
 import com.squareup.moshi.Moshi
@@ -49,3 +50,4 @@ object GeminiClient {
         retrofit.create(GeminiApiService::class.java)
     }
 }
+INNER_EOF
