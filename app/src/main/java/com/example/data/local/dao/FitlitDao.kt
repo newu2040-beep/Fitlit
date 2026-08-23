@@ -56,6 +56,9 @@ interface FitlitDao {
     @Query("DELETE FROM meal_plans")
     suspend fun clearMealPlans()
 
+    @Query("UPDATE meal_plans SET isEaten = 0")
+    suspend fun unmarkAllMealsEaten()
+
     @Query("DELETE FROM meal_plans WHERE id = :id")
     suspend fun deleteMealPlanById(id: Long)
 
@@ -71,6 +74,12 @@ interface FitlitDao {
 
     @Delete
     suspend fun deleteLoggedFood(food: LoggedFoodEntity)
+
+    @Query("DELETE FROM logged_food")
+    suspend fun clearAllLoggedFood()
+
+    @Query("DELETE FROM logged_food WHERE dateStr = :dateStr")
+    suspend fun clearLoggedFoodForDate(dateStr: String)
 
     // Fridge Items
     @Query("SELECT * FROM fridge_items ORDER BY category ASC, addedTimestamp DESC")
@@ -98,6 +107,9 @@ interface FitlitDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWeightLog(weightLog: WeightLogEntity): Long
 
+    @Query("DELETE FROM weight_logs")
+    suspend fun clearAllWeightLogs()
+
     // Activity Logs
     @Query("SELECT * FROM activity_logs WHERE dateStr = :dateStr ORDER BY timestamp DESC")
     fun getActivityLogsForDate(dateStr: String): Flow<List<ActivityLogEntity>>
@@ -108,10 +120,25 @@ interface FitlitDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertActivityLog(activity: ActivityLogEntity): Long
 
+    @Query("DELETE FROM activity_logs")
+    suspend fun clearAllActivityLogs()
+
+    @Query("DELETE FROM activity_logs WHERE dateStr = :dateStr")
+    suspend fun clearActivityLogsForDate(dateStr: String)
+
     // Water Logs
     @Query("SELECT * FROM water_logs WHERE dateStr = :dateStr")
     fun getWaterLogsForDate(dateStr: String): Flow<List<WaterLogEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWaterLog(waterLog: WaterLogEntity): Long
+
+    @Query("DELETE FROM water_logs")
+    suspend fun clearAllWaterLogs()
+
+    @Query("DELETE FROM water_logs WHERE dateStr = :dateStr")
+    suspend fun clearWaterLogsForDate(dateStr: String)
+
+    @Query("DELETE FROM user_profile")
+    suspend fun clearUserProfile()
 }

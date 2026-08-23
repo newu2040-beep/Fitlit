@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
         ActivityLogEntity::class,
         WaterLogEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class FitlitDatabase : RoomDatabase() {

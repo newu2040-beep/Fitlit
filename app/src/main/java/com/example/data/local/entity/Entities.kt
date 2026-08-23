@@ -25,6 +25,8 @@ data class UserProfileEntity(
     val budgetAmountDaily: Double = 12.0,
     val dietaryPreference: String = "High Protein", // "Vegetarian", "Non-Vegetarian", "Vegan", "High Protein", "Keto"
     val allergies: String = "None",
+    val profilePhotoUri: String? = null,
+    val selectedTheme: String = "SYSTEM", // "SYSTEM", "LIGHT", "DARK", "AMOLED_BLACK", "CYBER_BLUE", "SUNSET_AMBER", "ROSE_GOLD", "EMERALD"
     val hasCompletedOnboarding: Boolean = true,
     val safetyDisclaimerAccepted: Boolean = true
 )

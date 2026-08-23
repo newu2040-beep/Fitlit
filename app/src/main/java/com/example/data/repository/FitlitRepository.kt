@@ -174,6 +174,46 @@ class FitlitRepository(
         dao.deleteFridgeItem(id)
     }
 
+    suspend fun clearFridgeItems() {
+        dao.clearFridgeItems()
+    }
+
+    // Reset & Data Management
+    suspend fun clearTodayLogs() {
+        val today = LocalDate.now().toString()
+        dao.clearLoggedFoodForDate(today)
+        dao.clearActivityLogsForDate(today)
+        dao.clearWaterLogsForDate(today)
+        dao.unmarkAllMealsEaten()
+    }
+
+    suspend fun clearAllHistoricalLogs() {
+        dao.clearAllLoggedFood()
+        dao.clearAllActivityLogs()
+        dao.clearAllWaterLogs()
+        dao.clearAllWeightLogs()
+        dao.unmarkAllMealsEaten()
+    }
+
+    suspend fun clearDemoDataAndStartFresh() {
+        dao.clearAllLoggedFood()
+        dao.clearAllActivityLogs()
+        dao.clearAllWaterLogs()
+        dao.clearAllWeightLogs()
+        dao.clearFridgeItems()
+        dao.unmarkAllMealsEaten()
+    }
+
+    suspend fun fullFactoryReset() {
+        dao.clearAllLoggedFood()
+        dao.clearAllActivityLogs()
+        dao.clearAllWaterLogs()
+        dao.clearAllWeightLogs()
+        dao.clearMealPlans()
+        dao.clearFridgeItems()
+        dao.clearUserProfile()
+    }
+
     // AI Generation Actions
     suspend fun regenerateFullPlan(availableFridgeItems: List<String> = emptyList()): Result<GeneratedPlanResponse> {
         val profile = dao.getUserProfileOnce() ?: UserProfileEntity()

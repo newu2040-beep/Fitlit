@@ -96,7 +96,7 @@ fun WelcomeScreen(
             ) {
                 // Liquid glass Fitlit Icon
                 Image(
-                    painter = painterResource(id = R.drawable.ic_fitlit_logo),
+                    painter = painterResource(id = R.drawable.app_icon_foreground_1787458633138),
                     contentDescription = "Fitlit Logo",
                     modifier = Modifier
                         .size(110.dp)

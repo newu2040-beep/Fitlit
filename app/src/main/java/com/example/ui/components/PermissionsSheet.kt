@@ -20,11 +20,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsRun
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Button
@@ -180,7 +180,7 @@ fun PermissionsBottomSheet(
                 )
 
                 PermissionItemCard(
-                    icon = Icons.Rounded.DirectionsRun,
+                    icon = Icons.AutoMirrored.Rounded.DirectionsRun,
                     title = "Activity & Fitness Recognition",
                     description = "Track daily step counts and active calorie burn accurately",
                     isGranted = isActivityGranted,
@@ -244,7 +244,7 @@ fun PermissionsBottomSheet(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
-                    imageVector = Icons.Rounded.OpenInNew,
+                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
                     contentDescription = null,
                     tint = TextMuted,
                     modifier = Modifier.size(14.dp)

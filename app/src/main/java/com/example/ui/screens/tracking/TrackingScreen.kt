@@ -17,22 +17,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.Egg
 import androidx.compose.material.icons.rounded.Grain
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Opacity
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,16 +44,11 @@ import com.example.data.repository.TodayNutritionSummary
 import com.example.ui.components.GlassFilterChip
 import com.example.ui.components.LiquidGlassCard
 import com.example.ui.components.SplineTrackingChart
-import com.example.ui.theme.BackgroundLight
 import com.example.ui.theme.CarbsAmber
 import com.example.ui.theme.FatRose
 import com.example.ui.theme.LimePrimary
 import com.example.ui.theme.LimePrimaryDark
 import com.example.ui.theme.ProteinBlue
-import com.example.ui.theme.StepsGreen
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.WaterCyan
 
 @Composable
@@ -71,6 +62,7 @@ fun TrackingScreen(
     onLogWeightClick: () -> Unit,
     onLogActivityClick: () -> Unit,
     onCalendarClick: () -> Unit,
+    onResetDataClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val currentWeight = weightLogs.lastOrNull()?.weightKg ?: profile?.currentWeightKg ?: 72.4f
@@ -83,7 +75,7 @@ fun TrackingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -91,7 +83,7 @@ fun TrackingScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
         ) {
-            // Header: "Tracking", Calendar Icon
+            // Header: "Tracking", Reset Icon, Calendar Icon
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -100,27 +92,51 @@ fun TrackingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Tracking",
+                    text = "Tracking & Body Metrics",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .clickable(onClick = onCalendarClick)
-                        .testTag("tracking_calendar_btn"),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CalendarMonth,
-                        contentDescription = "Calendar",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    if (onResetDataClick != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable(onClick = onResetDataClick)
+                                .testTag("tracking_reset_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.RestartAlt,
+                                contentDescription = "Reset Tracking Data",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .clickable(onClick = onCalendarClick)
+                            .testTag("tracking_calendar_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CalendarMonth,
+                            contentDescription = "Calendar",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -149,22 +165,23 @@ fun TrackingScreen(
                     }
                 }
 
-                // Calories Chart Card (Screenshot 4)
+                // Calories Chart Card
                 item {
                     LiquidGlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("tracking_calories_chart_card"),
-                        backgroundColor = Color.White
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "Calories",
+                                text = "Calories Intake & Deficit",
                                 fontSize = 13.sp,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
 
@@ -177,7 +194,7 @@ fun TrackingScreen(
                                     text = "${summary.totalCalories} / ${summary.targetCalories} kcal",
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
 
                                 Row(
@@ -188,13 +205,13 @@ fun TrackingScreen(
                                         modifier = Modifier
                                             .size(7.dp)
                                             .clip(CircleShape)
-                                            .background(LimePrimaryDark)
+                                            .background(MaterialTheme.colorScheme.primary)
                                     )
                                     Text(
                                         text = "On Track",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = LimePrimaryDark
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -210,7 +227,7 @@ fun TrackingScreen(
                     }
                 }
 
-                // 3 Macro Pills Row (Screenshot 4: Protein, Carbs, Fats)
+                // 3 Macro Pills Row (Protein, Carbs, Fats)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -219,7 +236,7 @@ fun TrackingScreen(
                         MacroSummaryPill(
                             icon = Icons.Rounded.WaterDrop,
                             iconColor = ProteinBlue,
-                            iconBg = Color(0xFFE0F2FE),
+                            iconBg = ProteinBlue.copy(alpha = 0.15f),
                             label = "Protein",
                             value = "${summary.totalProtein} / ${summary.targetProtein}g",
                             modifier = Modifier.weight(1f)
@@ -227,7 +244,7 @@ fun TrackingScreen(
                         MacroSummaryPill(
                             icon = Icons.Rounded.Grain,
                             iconColor = CarbsAmber,
-                            iconBg = Color(0xFFFEF3C7),
+                            iconBg = CarbsAmber.copy(alpha = 0.15f),
                             label = "Carbs",
                             value = "${summary.totalCarbs} / ${summary.targetCarbs}g",
                             modifier = Modifier.weight(1f)
@@ -235,7 +252,7 @@ fun TrackingScreen(
                         MacroSummaryPill(
                             icon = Icons.Rounded.Opacity,
                             iconColor = FatRose,
-                            iconBg = Color(0xFFFFE4E6),
+                            iconBg = FatRose.copy(alpha = 0.15f),
                             label = "Fats",
                             value = "${summary.totalFats} / ${summary.targetFats}g",
                             modifier = Modifier.weight(1f)
@@ -243,7 +260,7 @@ fun TrackingScreen(
                     }
                 }
 
-                // Body Stats Grid (Screenshot 4)
+                // Body Stats Grid
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
@@ -255,13 +272,13 @@ fun TrackingScreen(
                                 text = "Body Stats",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Log Weight",
+                                text = "+ Log Weight",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = LimePrimaryDark,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .clickable(onClick = onLogWeightClick)
                                     .testTag("tracking_log_weight_btn")
@@ -276,14 +293,14 @@ fun TrackingScreen(
                             BodyStatCard(
                                 title = "Weight",
                                 value = "$currentWeight kg",
-                                changeText = "▼ 1.2",
+                                changeText = "▼ 1.2 kg",
                                 changePositive = true,
                                 modifier = Modifier.weight(1f)
                             )
                             BodyStatCard(
                                 title = "Body Fat",
                                 value = "$bodyFat %",
-                                changeText = "▼ 1.5",
+                                changeText = "▼ 1.5 %",
                                 changePositive = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -296,7 +313,7 @@ fun TrackingScreen(
                             BodyStatCard(
                                 title = "Muscle Mass",
                                 value = "$muscle kg",
-                                changeText = "▲ 0.8",
+                                changeText = "▲ 0.8 kg",
                                 changePositive = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -317,8 +334,8 @@ fun TrackingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("tracking_water_card"),
-                        backgroundColor = Color(0xFFF0FDF4),
-                        borderColor = Color(0xFFD4F878)
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = WaterCyan.copy(alpha = 0.4f)
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -340,10 +357,10 @@ fun TrackingScreen(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
-                                        text = "Water Intake",
+                                        text = "Water Hydration Intake",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
@@ -386,7 +403,8 @@ private fun MacroSummaryPill(
 ) {
     LiquidGlassCard(
         modifier = modifier,
-        backgroundColor = Color.White,
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        borderColor = MaterialTheme.colorScheme.outline,
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
@@ -411,14 +429,14 @@ private fun MacroSummaryPill(
                         modifier = Modifier.size(13.dp)
                     )
                 }
-                Text(text = label, fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
+                Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             }
 
             Text(
                 text = value,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -434,7 +452,8 @@ private fun BodyStatCard(
 ) {
     LiquidGlassCard(
         modifier = modifier,
-        backgroundColor = Color.White,
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        borderColor = MaterialTheme.colorScheme.outline,
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
@@ -444,7 +463,7 @@ private fun BodyStatCard(
             Text(
                 text = title,
                 fontSize = 12.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
 
@@ -452,14 +471,14 @@ private fun BodyStatCard(
                 text = value,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
                 text = changeText,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = LimePrimaryDark
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -474,7 +493,7 @@ private fun QuickWaterButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center

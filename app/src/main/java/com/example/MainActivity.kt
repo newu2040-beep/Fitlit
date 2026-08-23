@@ -2,14 +2,15 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,24 +35,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.data.local.entity.MealPlanEntity
 import com.example.ui.components.FitlitBottomBar
 import com.example.ui.components.PermissionsBottomSheet
+import com.example.ui.components.PhotoPickerBottomSheet
+import com.example.ui.components.ResetDataBottomSheet
 import com.example.ui.components.SafetyDisclaimerDialog
+import com.example.ui.components.ThemeSelectionBottomSheet
 import com.example.ui.screens.fridge.FridgeScreen
 import com.example.ui.screens.home.HomeScreen
 import com.example.ui.screens.home.QuickAddSheet
@@ -64,18 +62,15 @@ import com.example.ui.screens.tracking.TrackingScreen
 import com.example.ui.screens.welcome.OnboardingScreen
 import com.example.ui.screens.welcome.WelcomeScreen
 import com.example.ui.theme.FitlitTheme
-import com.example.ui.theme.LimePrimaryDark
-import com.example.ui.theme.TextOnLime
 import com.example.ui.viewmodel.FitlitViewModel
 import com.example.ui.viewmodel.FitlitViewModelFactory
 import com.example.util.PermissionUtils
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: FitlitViewModel by viewModels {
         val app = application as FitlitApplication
-        FitlitViewModelFactory(app.repository)
+        FitlitViewModelFactory(app, app.repository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,7 +78,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            FitlitTheme {
+            val currentTheme by viewModel.currentTheme.collectAsState()
+
+            FitlitTheme(themeMode = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -104,6 +101,8 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     val currentRoute = navBackStackEntry?.destination?.route ?: "welcome"
 
     val profile by viewModel.userProfile.collectAsState()
+    val currentTheme by viewModel.currentTheme.collectAsState()
+    val stepState by viewModel.stepState.collectAsState()
     val meals by viewModel.mealPlans.collectAsState()
     val nutritionSummary by viewModel.nutritionSummary.collectAsState()
     val weightLogs by viewModel.weightLogs.collectAsState()
@@ -118,19 +117,24 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
     var showQuickAddSheet by remember { mutableStateOf(false) }
     var showSafetyModal by remember { mutableStateOf(false) }
     var showPermissionsSheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var showPhotoPickerSheet by remember { mutableStateOf(false) }
+    var showResetDataSheet by remember { mutableStateOf(false) }
 
     val quickAddSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val mealDetailSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val permissionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val themeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val photoPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val resetDataSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         val grantedCount = results.values.count { it }
         if (grantedCount > 0) {
-            viewModel.showNotification("App permissions updated successfully! ✨")
+            viewModel.showNotification("App permissions updated! Full sensor & gallery access enabled ✨")
         }
     }
 
@@ -166,12 +170,12 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(8.dp, RoundedCornerShape(16.dp))
-                        .background(Color(0xFF1E293B), RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Text(
                         text = data.visuals.message,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -199,7 +203,11 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(260)) },
+            exitTransition = { fadeOut(tween(200)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(200)) },
+            popEnterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(260)) },
+            popExitTransition = { fadeOut(tween(200)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(200)) }
         ) {
             composable("welcome") {
                 WelcomeScreen(
@@ -225,11 +233,16 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                 HomeScreen(
                     profile = profile,
                     nutritionSummary = nutritionSummary,
+                    stepState = stepState,
                     meals = meals,
                     onPlanCardClick = { navController.navigate("plan") },
                     onFridgeCardClick = { navController.navigate("fridge") },
                     onMealClick = { meal -> viewModel.setSelectedMealDetail(meal) },
-                    onNotificationClick = { viewModel.showNotification("You're on track for your daily goals! 🌟") },
+                    onNotificationClick = { viewModel.showNotification("Daily goal progress: ${nutritionSummary.overallGoalProgressPercent}%! 🌟") },
+                    onThemePickerClick = { showThemeSheet = true },
+                    onAvatarClick = { showPhotoPickerSheet = true },
+                    onToggleLiveWalk = { viewModel.toggleLiveWalkSimulation() },
+                    onAddQuickSteps = { count -> viewModel.addQuickSteps(count) },
                     onSeeAllMealsClick = { navController.navigate("plan") }
                 )
             }
@@ -273,18 +286,82 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                     onAddWater = { ml -> viewModel.addWater(ml) },
                     onLogWeightClick = { showQuickAddSheet = true },
                     onLogActivityClick = { showQuickAddSheet = true },
-                    onCalendarClick = { viewModel.showNotification("Today's workout streak: 6 Days 🔥") }
+                    onCalendarClick = { viewModel.showNotification("Today's workout streak: 6 Days 🔥") },
+                    onResetDataClick = { showResetDataSheet = true }
                 )
             }
 
             composable("profile") {
                 ProfileScreen(
                     profile = profile,
+                    stepState = stepState,
+                    currentTheme = currentTheme,
                     onEditGoalClick = { navController.navigate("onboarding") },
                     onShowSafetyDisclaimer = { showSafetyModal = true },
-                    onManagePermissionsClick = { showPermissionsSheet = true }
+                    onManagePermissionsClick = { showPermissionsSheet = true },
+                    onOpenThemePicker = { showThemeSheet = true },
+                    onOpenPhotoPicker = { showPhotoPickerSheet = true },
+                    onOpenResetData = { showResetDataSheet = true }
                 )
             }
+        }
+
+        // Reset Data & Storage Bottom Sheet
+        if (showResetDataSheet) {
+            ResetDataBottomSheet(
+                sheetState = resetDataSheetState,
+                onResetDemoData = {
+                    viewModel.resetDemoData()
+                    showResetDataSheet = false
+                },
+                onClearTodayLogs = {
+                    viewModel.clearTodayLogs()
+                    showResetDataSheet = false
+                },
+                onClearFridge = {
+                    viewModel.clearFridgeInventory()
+                    showResetDataSheet = false
+                },
+                onFactoryReset = {
+                    viewModel.fullFactoryReset {
+                        navController.navigate("welcome") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                    showResetDataSheet = false
+                },
+                onDismiss = { showResetDataSheet = false }
+            )
+        }
+
+        // Theme Selection Bottom Sheet
+        if (showThemeSheet) {
+            ThemeSelectionBottomSheet(
+                sheetState = themeSheetState,
+                currentTheme = currentTheme,
+                onSelectTheme = { theme ->
+                    viewModel.selectTheme(theme)
+                    showThemeSheet = false
+                },
+                onDismiss = { showThemeSheet = false }
+            )
+        }
+
+        // Profile Photo Picker Bottom Sheet
+        if (showPhotoPickerSheet) {
+            PhotoPickerBottomSheet(
+                sheetState = photoPickerSheetState,
+                hasCustomPhoto = !profile?.profilePhotoUri.isNullOrEmpty(),
+                onPhotoSelected = { bitmap ->
+                    viewModel.updateProfilePhotoBitmap(bitmap)
+                    showPhotoPickerSheet = false
+                },
+                onRemovePhoto = {
+                    viewModel.removeProfilePhoto()
+                    showPhotoPickerSheet = false
+                },
+                onDismiss = { showPhotoPickerSheet = false }
+            )
         }
 
         // Permissions Bottom Sheet
@@ -293,7 +370,7 @@ fun FitlitAppContent(viewModel: FitlitViewModel) {
                 sheetState = permissionsSheetState,
                 onDismiss = { showPermissionsSheet = false },
                 onPermissionsUpdated = {
-                    viewModel.showNotification("Permissions updated! ✨")
+                    viewModel.showNotification("All permissions active! 🌟")
                 }
             )
         }

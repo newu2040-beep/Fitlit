@@ -19,20 +19,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -45,8 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -56,23 +52,26 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.local.entity.UserProfileEntity
 import com.example.ui.components.LiquidGlassCard
-import com.example.ui.theme.BackgroundLight
-import com.example.ui.theme.LimeGradientEnd
-import com.example.ui.theme.LimeGradientStart
+import com.example.ui.components.UserAvatarView
+import com.example.ui.theme.CalorieOrange
+import com.example.ui.theme.FitlitThemeMode
 import com.example.ui.theme.LimePrimary
 import com.example.ui.theme.LimePrimaryDark
 import com.example.ui.theme.StepsGreen
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.util.LiveStepState
 import com.example.util.PermissionUtils
 
 @Composable
 fun ProfileScreen(
     profile: UserProfileEntity?,
+    stepState: LiveStepState,
+    currentTheme: FitlitThemeMode,
     onEditGoalClick: () -> Unit,
     onShowSafetyDisclaimer: () -> Unit,
     onManagePermissionsClick: () -> Unit,
+    onOpenThemePicker: () -> Unit,
+    onOpenPhotoPicker: () -> Unit,
+    onOpenResetData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -88,7 +87,7 @@ fun ProfileScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -108,7 +107,7 @@ fun ProfileScreen(
                     text = "Profile & Settings",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 IconButton(
@@ -118,7 +117,7 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Rounded.Edit,
                         contentDescription = "Edit Profile",
-                        tint = LimePrimaryDark
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -129,11 +128,14 @@ fun ProfileScreen(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // User Avatar and Name Card
+                // User Avatar and Name Card with Photo Edit Badge
                 item {
                     LiquidGlassCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        backgroundColor = Color.White
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenPhotoPicker),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
                     ) {
                         Row(
                             modifier = Modifier
@@ -142,31 +144,98 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_fitlit_logo),
-                                contentDescription = "Avatar",
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
+                            UserAvatarView(
+                                photoUriOrBase64 = p.profilePhotoUri,
+                                userName = p.name,
+                                size = 68.dp,
+                                showEditBadge = true,
+                                onClick = onOpenPhotoPicker
                             )
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = p.name,
-                                    fontSize = 18.sp,
+                                    fontSize = 19.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "${p.goal} • Target: ${p.targetWeightKg} kg",
                                     fontSize = 13.sp,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = "${p.age} yrs • ${p.heightCm.toInt()} cm • ${p.currentWeightKg} kg",
                                     fontSize = 12.sp,
-                                    color = TextMuted
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Theme & AMOLED Display Preference Tile
+                item {
+                    LiquidGlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenThemePicker)
+                            .testTag("profile_theme_tile"),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Palette,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column {
+                                    Text(
+                                        text = "Theme & Display Mode",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${currentTheme.displayName} (Tap to customize)",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "Change",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -177,8 +246,8 @@ fun ProfileScreen(
                 item {
                     LiquidGlassCard(
                         modifier = Modifier.fillMaxWidth(),
-                        backgroundColor = Color(0xFFF9FDF5),
-                        borderColor = Color(0xFFD4F878)
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
@@ -188,7 +257,7 @@ fun ProfileScreen(
                                 text = "Personalized Targets",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Row(
@@ -203,15 +272,73 @@ fun ProfileScreen(
                     }
                 }
 
-                // App Permissions & Full Access Tile (User Request)
+                // Realtime Hardware Sensor & Pedometer Status Tile
+                item {
+                    LiquidGlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.DirectionsWalk,
+                                        contentDescription = null,
+                                        tint = StepsGreen,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column {
+                                    Text(
+                                        text = "Hardware Pedometer Sensor",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (stepState.isHardwareSensorActive) "Active & tracking live steps" else "Continuous telemetry enabled",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (stepState.isHardwareSensorActive || stepState.isSimulationActive) StepsGreen else Color.Gray)
+                            )
+                        }
+                    }
+                }
+
+                // App Permissions & Full Access Tile
                 item {
                     LiquidGlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(onClick = onManagePermissionsClick)
                             .testTag("profile_permissions_tile"),
-                        backgroundColor = if (allPermissionsAllowed) Color(0xFFF9FDF5) else Color.White,
-                        borderColor = if (allPermissionsAllowed) Color(0xFFD4F878) else Color(0xFFE2E8F0)
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
                     ) {
                         Row(
                             modifier = Modifier
@@ -228,13 +355,13 @@ fun ProfileScreen(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(CircleShape)
-                                        .background(if (allPermissionsAllowed) Color(0xFFE2F8B6) else Color(0xFFEFF6FF)),
+                                        .background(if (allPermissionsAllowed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Security,
                                         contentDescription = null,
-                                        tint = if (allPermissionsAllowed) LimePrimaryDark else Color(0xFF2563EB),
+                                        tint = if (allPermissionsAllowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -248,7 +375,7 @@ fun ProfileScreen(
                                             text = "App Permissions & Access",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         if (allPermissionsAllowed) {
                                             Icon(
@@ -262,7 +389,7 @@ fun ProfileScreen(
                                     Text(
                                         text = if (allPermissionsAllowed) "Camera, Gallery, Notifications & Activity enabled" else "Allow Camera, Gallery, Notifications & Activity",
                                         fontSize = 12.sp,
-                                        color = TextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -270,22 +397,22 @@ fun ProfileScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = "Manage Permissions",
-                                tint = TextMuted,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                 }
 
-                // Safety Disclaimer Tile (Prominent requirement per PRD Section 7)
+                // Safety Disclaimer Tile
                 item {
                     LiquidGlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(onClick = onShowSafetyDisclaimer)
                             .testTag("profile_safety_disclaimer_tile"),
-                        backgroundColor = Color(0xFFFFFBEB),
-                        borderColor = Color(0xFFFDE68A)
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = Color(0xFFFDE68A).copy(alpha = 0.5f)
                     ) {
                         Row(
                             modifier = Modifier
@@ -318,12 +445,12 @@ fun ProfileScreen(
                                         text = "Health & Safety Disclaimer",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = "Fitlit is general wellness, not medical advice",
                                         fontSize = 12.sp,
-                                        color = TextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -331,7 +458,7 @@ fun ProfileScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = "View",
-                                tint = TextMuted,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -344,14 +471,15 @@ fun ProfileScreen(
                         text = "Preferences & Integrations",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 item {
                     LiquidGlassCard(
                         modifier = Modifier.fillMaxWidth(),
-                        backgroundColor = Color.White
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.outline
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -363,13 +491,13 @@ fun ProfileScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Health Connect Integration", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                    Text("Sync steps, heart rate and calories", fontSize = 12.sp, color = TextSecondary)
+                                    Text("Health Connect Integration", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Sync steps, heart rate and calories", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(
                                     checked = healthConnectSync,
                                     onCheckedChange = { healthConnectSync = it },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = LimePrimaryDark)
+                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
                                 )
                             }
 
@@ -379,42 +507,177 @@ fun ProfileScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Smart AI Meal Reminders", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                    Text("Get notifications before meal times", fontSize = 12.sp, color = TextSecondary)
+                                    Text("Smart AI Meal Reminders", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Get notifications before meal times", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(
                                     checked = smartReminders,
                                     onCheckedChange = { smartReminders = it },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = LimePrimaryDark)
+                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
                                 )
                             }
                         }
                     }
                 }
 
-                // AI Intelligence details
+
+                // Data & Reset Storage Setting
+                item {
+                    Text(
+                        text = "Data Management & Privacy",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
                 item {
                     LiquidGlassCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        backgroundColor = Color.White
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenResetData)
+                            .testTag("reset_data_setting_card"),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = CalorieOrange.copy(alpha = 0.4f)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
-                                contentDescription = null,
-                                tint = LimePrimaryDark,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Column {
-                                Text("Powered by Gemini AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("gemini-3.5-flash & gemini-3.1-pro-preview vision", fontSize = 12.sp, color = TextMuted)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFFEDD5)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.RestartAlt,
+                                        contentDescription = "Reset",
+                                        tint = CalorieOrange,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "Reset Data & Demo Logs",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "REAL-TIME",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "Wipe demo entries to start real-time tracking from 0",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = "Open Reset Sheet",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                // App Credit & Developer Note: Made with love by Rahul
+                item {
+                    LiquidGlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("developer_credit_card"),
+                        backgroundColor = MaterialTheme.colorScheme.surface,
+                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.app_icon_foreground_1787458633138),
+                                    contentDescription = "Fitlit App Icon",
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                )
+                            }
+
+                            Text(
+                                text = "Fitlit",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Made with",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Icon(
+                                    imageVector = Icons.Rounded.Favorite,
+                                    contentDescription = "Love",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "by Rahul",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Text(
+                                text = "Version 1.0.0 • AI Health & Nutrition System",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
                         }
                     }
                 }
@@ -430,7 +693,7 @@ fun ProfileScreen(
 @Composable
 private fun TargetStatItem(title: String, value: String) {
     Column {
-        Text(text = title, fontSize = 11.sp, color = TextSecondary)
-        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(text = title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     }
 }

@@ -1,6 +1,8 @@
 package com.example.ui.viewmodel
 
+import android.app.Application
 import android.graphics.Bitmap
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,6 +17,10 @@ import com.example.data.remote.GeneratedMeal
 import com.example.data.remote.GeneratedPlanResponse
 import com.example.data.repository.FitlitRepository
 import com.example.data.repository.TodayNutritionSummary
+import com.example.ui.theme.FitlitThemeMode
+import com.example.util.AvatarManager
+import com.example.util.LiveStepState
+import com.example.util.RealtimeStepTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +31,9 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 class FitlitViewModel(
+    application: Application,
     private val repository: FitlitRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     val userProfile: StateFlow<UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -49,25 +56,95 @@ class FitlitViewModel(
     val fridgeItems: StateFlow<List<FridgeItemEntity>> = repository.fridgeItems
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Realtime Hardware Step Counter Tracker Engine
+    private val stepTracker = RealtimeStepTracker(
+        context = application.applicationContext,
+        scope = viewModelScope,
+        onStepCountUpdated = { newTotalSteps, deltaSteps ->
+            // Sync step delta into Room database activity logs
+            if (deltaSteps > 0) {
+                viewModelScope.launch {
+                    val todayStr = LocalDate.now().toString()
+                    repository.logActivity(
+                        name = "Pedometer Walk",
+                        durationMinutes = (deltaSteps / 100).coerceAtLeast(1),
+                        calories = (deltaSteps * 0.042f).toInt(),
+                        steps = deltaSteps
+                    )
+                }
+            }
+        }
+    )
+
+    val stepState: StateFlow<LiveStepState> = stepTracker.stepState
+
+    init {
+        // Start tracking base steps dynamically from activity history
+        viewModelScope.launch {
+            todayActivity.collect { activities ->
+                val baseSteps = activities.sumOf { it.stepsCount }
+                stepTracker.startTracking(baseSteps)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stepTracker.stopTracking()
+    }
+
+    fun toggleLiveWalkSimulation() {
+        stepTracker.toggleLiveWalkSimulation()
+    }
+
+    fun addQuickSteps(count: Int = 50) {
+        stepTracker.recordManualWalkStepIncrement(count)
+        showNotification("+$count steps added! 👟")
+    }
+
+    // Dynamic Theme selection state
+    private val _currentTheme = MutableStateFlow(FitlitThemeMode.SYSTEM)
+    val currentTheme: StateFlow<FitlitThemeMode> = _currentTheme.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            userProfile.collect { profile ->
+                profile?.selectedTheme?.let { themeId ->
+                    _currentTheme.value = FitlitThemeMode.fromId(themeId)
+                }
+            }
+        }
+    }
+
+    fun selectTheme(theme: FitlitThemeMode) {
+        _currentTheme.value = theme
+        viewModelScope.launch {
+            val current = userProfile.value ?: UserProfileEntity()
+            repository.saveProfile(current.copy(selectedTheme = theme.id))
+            showNotification("Theme changed to ${theme.displayName} ✨")
+        }
+    }
+
     // Combined live nutrition summary
     val nutritionSummary: StateFlow<TodayNutritionSummary> = combine(
         userProfile,
         todayLoggedFood,
         todayActivity,
-        todayWater
-    ) { profile, loggedFood, activities, waterLogs ->
+        todayWater,
+        stepState
+    ) { profile, loggedFood, activities, waterLogs, liveSteps ->
         val p = profile ?: UserProfileEntity()
         val cals = loggedFood.sumOf { it.calories }
         val protein = loggedFood.sumOf { it.proteinG }
         val carbs = loggedFood.sumOf { it.carbsG }
         val fats = loggedFood.sumOf { it.fatG }
-        val steps = activities.sumOf { it.stepsCount }
+        val totalSteps = liveSteps.liveStepsToday.coerceAtLeast(activities.sumOf { it.stepsCount })
         val water = waterLogs.sumOf { it.amountMl }
 
         // Calculate weighted score for overall daily goal progress (Calories + Protein + Steps)
         val calProgress = if (p.targetCalories > 0) (cals.toFloat() / p.targetCalories).coerceIn(0f, 1f) else 0f
         val proteinProgress = if (p.targetProtein > 0) (protein.toFloat() / p.targetProtein).coerceIn(0f, 1f) else 0f
-        val stepProgress = if (p.targetSteps > 0) (steps.toFloat() / p.targetSteps).coerceIn(0f, 1f) else 0f
+        val stepProgress = if (p.targetSteps > 0) (totalSteps.toFloat() / p.targetSteps).coerceIn(0f, 1f) else 0f
 
         val overallPercent = ((calProgress * 0.45f + proteinProgress * 0.35f + stepProgress * 0.20f) * 100).toInt()
 
@@ -80,7 +157,7 @@ class FitlitViewModel(
             targetCarbs = p.targetCarbs,
             totalFats = fats,
             targetFats = p.targetFats,
-            totalSteps = steps,
+            totalSteps = totalSteps,
             targetSteps = p.targetSteps,
             totalWaterMl = water,
             targetWaterMl = p.targetWaterMl,
@@ -123,11 +200,38 @@ class FitlitViewModel(
         _notificationMessage.value = msg
     }
 
-    // Profile & Onboarding Actions
+    // Profile & Photo Actions
     fun updateProfile(profile: UserProfileEntity) {
         viewModelScope.launch {
             repository.saveProfile(profile)
             showNotification("Profile updated successfully")
+        }
+    }
+
+    fun updateProfilePhotoBitmap(bitmap: Bitmap) {
+        val savedPath = AvatarManager.saveAvatarBitmap(getApplication(), bitmap)
+        if (savedPath != null) {
+            viewModelScope.launch {
+                val current = userProfile.value ?: UserProfileEntity()
+                repository.saveProfile(current.copy(profilePhotoUri = savedPath))
+                showNotification("Profile photo updated! 📸")
+            }
+        } else {
+            // Fallback to base64 encoding
+            val base64 = AvatarManager.bitmapToBase64(bitmap)
+            viewModelScope.launch {
+                val current = userProfile.value ?: UserProfileEntity()
+                repository.saveProfile(current.copy(profilePhotoUri = base64))
+                showNotification("Profile photo updated! 📸")
+            }
+        }
+    }
+
+    fun removeProfilePhoto() {
+        viewModelScope.launch {
+            val current = userProfile.value ?: UserProfileEntity()
+            repository.saveProfile(current.copy(profilePhotoUri = null))
+            showNotification("Profile photo removed")
         }
     }
 
@@ -290,15 +394,60 @@ class FitlitViewModel(
             showNotification("Logged weight: $weight kg")
         }
     }
+
+    // Real-Time Reset and Demo Data Clean-up
+    fun resetDemoData() {
+        viewModelScope.launch {
+            repository.clearDemoDataAndStartFresh()
+            stepTracker.resetSteps()
+            showNotification("Demo data cleared! Tracking real-time data now ✨")
+        }
+    }
+
+    fun clearTodayLogs() {
+        viewModelScope.launch {
+            repository.clearTodayLogs()
+            stepTracker.resetSteps()
+            showNotification("Today's food, water and activity logs cleared 🔄")
+        }
+    }
+
+    fun clearAllTrackingData() {
+        viewModelScope.launch {
+            repository.clearAllHistoricalLogs()
+            stepTracker.resetSteps()
+            showNotification("All nutrition & activity history reset 🧹")
+        }
+    }
+
+    fun clearFridgeInventory() {
+        viewModelScope.launch {
+            repository.clearFridgeItems()
+            _generatedFridgeMeals.value = emptyList()
+            showNotification("Smart fridge inventory emptied 🧊")
+        }
+    }
+
+    fun fullFactoryReset(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            repository.fullFactoryReset()
+            stepTracker.resetSteps()
+            _generatedFridgeMeals.value = emptyList()
+            _selectedMealDetail.value = null
+            showNotification("App reset to fresh state 🌟")
+            onComplete()
+        }
+    }
 }
 
 class FitlitViewModelFactory(
+    private val application: Application,
     private val repository: FitlitRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(FitlitViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return FitlitViewModel(repository) as T
+            return FitlitViewModel(application, repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

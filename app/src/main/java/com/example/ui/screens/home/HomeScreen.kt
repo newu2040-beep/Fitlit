@@ -27,11 +27,11 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,26 +49,29 @@ import com.example.data.local.entity.UserProfileEntity
 import com.example.data.repository.TodayNutritionSummary
 import com.example.ui.components.CircularGoalRing
 import com.example.ui.components.LiquidGlassCard
-import com.example.ui.theme.BackgroundLight
+import com.example.ui.components.RealtimeStepsHUD
+import com.example.ui.components.UserAvatarView
 import com.example.ui.theme.CalorieOrange
-import com.example.ui.theme.GlassBorderLight
 import com.example.ui.theme.LimePrimary
 import com.example.ui.theme.LimePrimaryDark
 import com.example.ui.theme.ProteinBlue
 import com.example.ui.theme.StepsGreen
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.util.LiveStepState
 
 @Composable
 fun HomeScreen(
     profile: UserProfileEntity?,
     nutritionSummary: TodayNutritionSummary,
+    stepState: LiveStepState,
     meals: List<MealPlanEntity>,
     onPlanCardClick: () -> Unit,
     onFridgeCardClick: () -> Unit,
     onMealClick: (MealPlanEntity) -> Unit,
     onNotificationClick: () -> Unit,
+    onThemePickerClick: () -> Unit,
+    onAvatarClick: () -> Unit,
+    onToggleLiveWalk: () -> Unit,
+    onAddQuickSteps: (Int) -> Unit,
     onSeeAllMealsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -78,7 +81,7 @@ fun HomeScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -87,9 +90,9 @@ fun HomeScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Header: "Good morning, Rahul 🟢" + Notification Bell
+            // Header: User Avatar + "Good morning, Rahul" + Quick Theme & Notification actions
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,68 +100,114 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Good morning,",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextSecondary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    UserAvatarView(
+                        photoUriOrBase64 = profile?.profilePhotoUri,
+                        userName = userName,
+                        size = 46.dp,
+                        onClick = onAvatarClick
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+
+                    Column {
                         Text(
-                            text = userName,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            text = "Good morning,",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(9.dp)
-                                .clip(CircleShape)
-                                .background(LimePrimaryDark)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = userName,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
                     }
                 }
 
-                // Glass Notification Bell button
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(1.dp, GlassBorderLight, CircleShape)
-                        .clickable(onClick = onNotificationClick)
-                        .testTag("home_notification_bell"),
-                    contentAlignment = Alignment.Center
+                // Action Buttons: Theme Switcher & Notification Bell
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Notifications,
-                        contentDescription = "Notifications",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    // Theme Switcher Button
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .clickable(onClick = onThemePickerClick)
+                            .testTag("home_theme_picker_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Palette,
+                            contentDescription = "Themes & AMOLED",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Glass Notification Bell button
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .clickable(onClick = onNotificationClick)
+                            .testTag("home_notification_bell"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Notifications,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
-            // "Today's Progress" Card (Screenshot 2)
+            // Realtime Hardware Step Counter HUD Card
+            RealtimeStepsHUD(
+                stepState = stepState,
+                targetSteps = profile?.targetSteps ?: 10000,
+                onToggleLiveWalk = onToggleLiveWalk,
+                onAddQuickSteps = onAddQuickSteps
+            )
+
+            // "Today's Progress" Card
             LiquidGlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("home_today_progress_card"),
-                backgroundColor = Color.White
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                borderColor = MaterialTheme.colorScheme.outline
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Today's Progress",
+                        text = "Today's Progress & Fuel",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Row(
@@ -169,7 +218,7 @@ fun HomeScreen(
                         // Circular Goal Ring
                         CircularGoalRing(
                             percentage = nutritionSummary.overallGoalProgressPercent,
-                            size = 125.dp,
+                            size = 120.dp,
                             strokeWidth = 11.dp
                         )
 
@@ -181,7 +230,7 @@ fun HomeScreen(
                             MetricRowItem(
                                 icon = Icons.Rounded.LocalFireDepartment,
                                 iconColor = CalorieOrange,
-                                iconBg = Color(0xFFFFEDE6),
+                                iconBg = MaterialTheme.colorScheme.surfaceVariant,
                                 label = "Calories",
                                 value = "${nutritionSummary.totalCalories} / ${nutritionSummary.targetCalories} kcal"
                             )
@@ -190,7 +239,7 @@ fun HomeScreen(
                             MetricRowItem(
                                 icon = Icons.Rounded.WaterDrop,
                                 iconColor = ProteinBlue,
-                                iconBg = Color(0xFFE0F2FE),
+                                iconBg = MaterialTheme.colorScheme.surfaceVariant,
                                 label = "Protein",
                                 value = "${nutritionSummary.totalProtein} / ${nutritionSummary.targetProtein} g"
                             )
@@ -199,7 +248,7 @@ fun HomeScreen(
                             MetricRowItem(
                                 icon = Icons.Rounded.DirectionsWalk,
                                 iconColor = StepsGreen,
-                                iconBg = Color(0xFFDCFCE7),
+                                iconBg = MaterialTheme.colorScheme.surfaceVariant,
                                 label = "Steps",
                                 value = "${String.format("%,d", nutritionSummary.totalSteps)} / ${String.format("%,d", nutritionSummary.targetSteps)}"
                             )
@@ -213,8 +262,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("home_ai_plan_card"),
-                backgroundColor = Color(0xFFF9FDF5),
-                borderColor = Color(0xFFD4F878),
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                 onClick = onPlanCardClick
             ) {
                 Row(
@@ -232,28 +281,28 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFEBFCD2)),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AutoAwesome,
                                 contentDescription = null,
-                                tint = LimePrimaryDark,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
 
                         Column {
                             Text(
-                                text = "${profile?.goal ?: "Fat Loss"} Plan",
+                                text = "${profile?.goal ?: "Fat Loss"} AI Plan",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "${profile?.targetCalories ?: 1800} kcal • ${profile?.dietaryPreference ?: "High Protein"}",
                                 fontSize = 12.sp,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -261,13 +310,13 @@ fun HomeScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = "View Plan",
-                        tint = TextMuted,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)
                     )
                 }
             }
 
-            // "Today's Meals" Section (Screenshot 2)
+            // "Today's Meals" Section
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -280,13 +329,13 @@ fun HomeScreen(
                         text = "Today's Meals",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "See all",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = LimePrimaryDark,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .clickable(onClick = onSeeAllMealsClick)
                             .testTag("home_see_all_meals")
@@ -309,13 +358,13 @@ fun HomeScreen(
                 }
             }
 
-            // "What's in Your Fridge?" Card (Screenshot 2)
+            // "What's in Your Fridge?" Card
             LiquidGlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("home_fridge_card"),
-                backgroundColor = Color(0xFFF9FDF5),
-                borderColor = Color(0xFFD4F878),
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                borderColor = MaterialTheme.colorScheme.outline,
                 onClick = onFridgeCardClick
             ) {
                 Row(
@@ -330,15 +379,15 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "What\'s in Your Fridge?",
+                            text = "What's in Your Fridge?",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Add ingredients and let AI suggest meals",
+                            text = "Scan ingredients and generate smart recipes",
                             fontSize = 12.sp,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -350,7 +399,7 @@ fun HomeScreen(
                             painter = painterResource(id = R.drawable.fridge_illustration),
                             contentDescription = "Fridge",
                             modifier = Modifier
-                                .size(50.dp)
+                                .size(48.dp)
                                 .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop
                         )
@@ -358,7 +407,7 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                             contentDescription = "Open Fridge",
-                            tint = TextMuted,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -399,14 +448,14 @@ private fun MetricRowItem(
             Text(
                 text = label,
                 fontSize = 11.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = value,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -429,7 +478,8 @@ private fun HomeMealCard(
             .width(115.dp)
             .clickable(onClick = onClick)
             .testTag("home_meal_card_${meal.mealType}"),
-        backgroundColor = Color.White,
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        borderColor = MaterialTheme.colorScheme.outline,
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
@@ -450,13 +500,13 @@ private fun HomeMealCard(
                 text = meal.mealType,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
                 text = meal.title.take(15) + if (meal.title.length > 15) "..." else "",
                 fontSize = 10.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
 
@@ -464,7 +514,7 @@ private fun HomeMealCard(
                 text = "${meal.calories} kcal",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = LimePrimaryDark
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
